@@ -335,7 +335,7 @@ The main parts:
 | `compile.ts` | Compiles in a worker, so an endless loop in a script can be stopped. |
 | `script.ts` | The files, the block and its manifest: hashing, finding the block, staleness. |
 | `ko.ts`, `i18n.ts` | The Korean translation of the window. `tests/ko.test.ts` keeps it in step with the source. |
-| `compiler/` | The language: the generated declarations, the runtime, the compiler, the simulators, and in `backend/` the build of the programs into a map. [`docs/ir.md`](docs/ir.md) describes the IR. |
+| `compiler/` | The language: the generated declarations, the runtime, the compiler, the simulators, and in `backend/` the build of the programs into a map. [`docs/compiler.md`](docs/compiler.md) walks through it and [`docs/ir.md`](docs/ir.md) describes the IR. |
 | `vendor/` | Tables copied from the editor: the trigger record layout, the condition and action definitions, unit and flag names, the text trigger format. Copy them again when the editor changes them. |
 | `tests/` | vitest. `readme.test.ts` compiles every `ts` example in this file and runs its tests. |
 
