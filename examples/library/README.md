@@ -18,5 +18,8 @@ import { announce, spawnWave, waveSize } from "waves";
   the newer version.
 
 To try it, paste `github:scm-js/plugin-trigscript/examples/library` into **Plugins ▸
-Manage Plugins…** and press **Add**. TrigScript's README, under *Libraries from other
-plugins* and *Providing a library*, describes the rest.
+Manage Plugins…** and press **Add**. [Providing a
+library](../../README.md#providing-a-library) in TrigScript's README describes the rest,
+and [Libraries from other
+plugins](https://docs.scmjs.dev/trigscript-library/libraries-from-other-plugins/) shows how
+a map maker uses one.
