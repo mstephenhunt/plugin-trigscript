@@ -17853,6 +17853,7 @@ var Emitter = class {
       }
       if (read < w * (ps.length - 1) || this.scope.decls.get(id)?.routed) routed.add(id);
     }
+    for (const [id, ps] of this.places) if (ps.length > 1 && !written.has(id) && this.scope.decls.get(id)?.routed) routed.add(id);
     const condReads = (p) => {
       const out = new Map(coldConds.get(p.label) ?? []);
       for (const id of routed) for (const pl of this.places.get(id).slice(1)) {
