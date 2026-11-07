@@ -1,0 +1,35 @@
+{
+  "name": "scmjs-trigscript",
+  "displayName": "TrigScript (scmJS)",
+  "description": "TrigScript's errors, completions, hovers and go to definition in VS Code, from scmjs lsp.",
+  "version": "0.1.0",
+  "publisher": "scm-js",
+  "license": "MIT",
+  "private": true,
+  "repository": "github:scm-js/plugin-trigscript",
+  "engines": { "vscode": "^1.91.0" },
+  "categories": ["Programming Languages", "Linters"],
+  "main": "./extension.cjs",
+  "activationEvents": ["workspaceContains:**/trigscript/main.ts", "workspaceContains:**/trigscript/main.tsx"],
+  "contributes": {
+    "configuration": {
+      "title": "TrigScript",
+      "properties": {
+        "trigscript.server.command": {
+          "type": "string",
+          "default": "scmjs",
+          "description": "The scmjs command that runs the language server (npm install -g @scm-js/cli)."
+        },
+        "trigscript.server.args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["lsp"],
+          "description": "Its arguments. Add \"--map\", \"<map>\" for a script outside an unpacked map."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^11.0.0"
+  }
+}

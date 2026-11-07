@@ -312,6 +312,22 @@ A plugin cannot import a `.ts` file as text, so the modules are passed as string
 is in `lib/`, `node embed.mjs` writes it into `modules.ts`, and `plugin.ts` provides it. It
 installs as it is from `github:scm-js/plugin-trigscript/examples/library`.
 
+## In other editors
+
+The command line's `scmjs lsp` serves the same checks to editors other than the
+TrigScript window: VS Code, Neovim, Helix and any editor with a Language Server Protocol
+client. Unpack a map with `scmjs map unpack`, open its `trigscript/` folder, and the
+errors, completions, hovers and go to definition are the ones the window has, against
+that map's names. The command line guide's
+[TrigScript in your text editor](https://docs.scmjs.dev/cli/for-developers/#trigscript-in-your-text-editor)
+has the setup for each editor. `editors/vscode/` is a small VS Code extension that starts
+the server.
+
+The language behind it is `language.ts`, `ScriptLanguage`: a TypeScript language service
+over the script laid out as the compiler lays it out, with the compiler's check for the
+errors. It takes TypeScript as an argument and touches no files, so anything that can hand
+it the script's files and the map's names can use it.
+
 ## Development
 
 ```sh
@@ -332,6 +348,7 @@ The main parts:
 | `tree.ts` | Files as folders, and moves that rewrite imports. |
 | `testState.ts` | What the window shows of the test results. |
 | `monaco.ts` | Loads Monaco from `dist/` on jsDelivr, at the tag `DIST_TAG` names. |
+| `language.ts` | The language for other editors: errors, completions, hovers, definitions and outlines as plain data, for `scmjs lsp`. |
 | `compile.ts` | Compiles in a worker, so an endless loop in a script can be stopped. |
 | `script.ts` | The files, the block and its manifest: hashing, finding the block, staleness. |
 | `ko.ts`, `i18n.ts` | The Korean translation of the window. `tests/ko.test.ts` keeps it in step with the source. |
