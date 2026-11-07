@@ -11,6 +11,8 @@ import { defaultScriptNames } from "../compiler/names";
 import { ProgramSimulation, type SimUnitInit } from "../compiler/simulateIr";
 import { ActionType } from "../vendor/triggers";
 import { defaultLib } from "../bundle/lib.mjs";
+import { emitOwn } from "../compiler/backend/own";
+import { OWN } from "./randomRun";
 import type { Stmt } from "../compiler/ir";
 
 const LIB = defaultLib();
@@ -189,5 +191,25 @@ program(async () => { await sleep(frames(2)); createUnit(P8, units.ZergZergling,
     expect(messages(`on.died({ by: P2 }, (u) => {});`).join("\n")).toContain("'by' does not exist");
     expect(messages(`on.morphed({ order: orders.Move }, (u) => {});`).join("\n")).toContain("'order' does not exist");
     expect(messages(`on.order({ order: orders.Move }, orders.Patrol, (u) => {});`).join("\n")).toContain("'order' does not exist");
+  });
+});
+
+describe("events: in a map of our own", () => {
+  it("a listener in a program of its own reads the count the pass writes in another program (#78)", () => {
+    // The map's events pass is laid out once, in the first program with events, and writes the frame's counts there.
+    // A listener in a later program never writes the count it loops up to; its loop's bound is a place of the count
+    // all the same, refreshed from the count's cell before the test — or the loop runs to 0 and the handler never does.
+    const r = compileScript(ts, { "main.ts": `const HOME = 1 as Location;
+on.created(units.TerranSCV, (u) => { print("scv"); });
+on.created(units.ProtossProbe, (u) => { print("probe"); });
+on.created(units.ZergDrone, (u) => { print("drone"); });
+program(async () => { await sleep(frames(2)); createUnit(P1, units.TerranSCV, 1, HOME); while (true) await sleep(frames(1)); });` }, NAMES, { lib: LIB, own: OWN });
+    expect(r.diagnostics.map((d) => d.message)).toEqual([]);
+    const o = emitOwn(r);
+    if (typeof o === "string") throw new Error(o);
+    expect(o.runs.map((run) => run.program)).toEqual([0, 1, 2, 3]);
+    const reads = (k: number) => JSON.stringify(o.runs[k].graph.triggers).includes('"@ev.madeN"');
+    expect([0, 1, 2].map(reads)).toEqual([true, true, true]);
+    expect(reads(3)).toBe(false);
   });
 });

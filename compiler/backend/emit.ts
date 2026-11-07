@@ -4205,6 +4205,9 @@ class Emitter {
       }
       if (read < w * (ps.length - 1) || this.scope.decls.get(id)?.routed) routed.add(id);
     }
+    // (A routed variable this run never writes — the map's events count, written by the run that lays the pass out —
+    // is refreshed from its cell all the same: its places are filled by no write of this graph.)
+    for (const [id, ps] of this.places) if (ps.length > 1 && !written.has(id) && this.scope.decls.get(id)?.routed) routed.add(id);
     // What a trigger's conditions read of routed variables: the places refreshed before it.
     const condReads = (p: Proto): Map<string, Place[]> => {
       const out = new Map<string, Place[]>(coldConds.get(p.label) ?? []);
