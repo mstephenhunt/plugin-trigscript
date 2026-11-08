@@ -328,7 +328,10 @@ function expect(actual: unknown) {
       /** A text shown to a player: all of it, or a pattern it matches. `to`: only what that player was shown. */
       toHavePrinted: (e: RegExp | string, options?: { to?: number }) => {
         const lines = sim("toHavePrinted").printed(options?.to);
-        if (lines.some((l) => (typeof e === "string" ? l === e || l.includes(e) : e.test(l))) !== not) return;
+        // A line as it was written and with its colour codes taken out, as the lifted game's printed() has it: text
+        // split by a <span> matches either way.
+        const matches = (l: string) => (typeof e === "string" ? l === e || l.includes(e) : e.test(l));
+        if (lines.some((l) => matches(l) || matches(l.replace(/[\x01-\x1f]/g, ""))) !== not) return;
         throw new ExpectError(`expected ${not ? "nothing" : "something"} printed that matches ${brief(e)}; printed: ${lines.length ? lines.map((l) => JSON.stringify(l)).join(", ") : "nothing"}`, show(e), show(lines));
       },
       /** The simulator said a program did what is always a mistake; asking for it is what lets a test go on past it. */
