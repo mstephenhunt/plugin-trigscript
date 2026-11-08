@@ -1,0 +1,28 @@
+TrigScript: first person, probe 5 (on the main screen, bright palettes) - answers
+Map: trigscript-first-person-5.scx (the lobby says "TrigScript first person 5")
+Single player. Please RECORD THE SCREEN. About 3 minutes.
+Play in REMASTERED graphics; press F5 ONCE about halfway to see Classic, and stay there to the end.
+
+What changed since probe 4 ("hard to see"): every colour is now saturated and bright, the walls get black outlines
+where one face meets another, and you can switch palettes while you play:
+  V - the next palette:
+      1 fire:    walls white / pale yellow / yellow / orange (near to far), floor blue, ceiling black
+      2 ice:     walls cyan / slate blue / blue, floor black, ceiling purple
+      3 outline: walls green (one side) and purple (the other), floor and ceiling black
+  O - outlines on / off
+  B - the eye over the Marine's shoulder
+Monsters are red in every palette. Your Marine starts selected: RIGHT-CLICK THE MINIMAP to move it, A then a click on
+the minimap to attack-move. Please try each palette for 20-30 seconds, walking and turning, with outlines on and off.
+Pictures from the game played without anyone: first-person-5-palette-1.png, -2.png, -3.png (the view above, the arena below).
+
+1. Which palette reads best (walls, rooms, doors, corners)? ->
+   1 fire ->
+   2 ice ->
+   3 outline ->
+2. Do the black outlines help? ->
+3. Are the monsters (red) easy to see in each palette? ->
+4. Remastered vs Classic (F5): which looks better now? ->
+5. Is it "playable" - can you tell where you are going? ->
+6. Any slowdown, stutter, missing pixels or messages? ->
+
+Anything else ->

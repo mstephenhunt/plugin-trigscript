@@ -6674,6 +6674,19 @@ and Remastered. The user's pick of the minimap probes was probe 3 (the Marine dr
   average, 5.4 at the most**; pixels written a frame: median 12, 90th 75, at the most ~300, 26 on average; the picture
   changed on 420 of 660 frames (the rest nothing moved). The board's making reads 960 sprites in one frame: 12 ms, once.
 
+**Probe 4 played (Remastered, "i dont think it really works, its hard to see").** The board renders and updates and the
+red monsters read; everything else is mud: a Flag's glyph is only about half its player's colour (pole and base grey
+on every pixel), so greys, browns and darks vanish into the metal. **Probe 5** (`probes/first-person-5.ts`, "TrigScript
+first person 5") is probe 4 with saturated, bright colours only and three palettes switched in the game (V): "fire"
+(walls white, pale yellow, yellow, orange by distance, the y-faces a step further; floor blue, ceiling black), "ice"
+(walls cyan, slate blue, blue; floor black, ceiling purple), "outline" (walls green and purple by side; floor and ceiling
+black); monsters red in all. O toggles black outlines: the nearer column drawn black wherever one wall face meets
+another (the face runs of probe 2). CRGB: P1 yellow, P2 red, P3 white, P4 orange, P5 purple, P6 blue, P7 cyan, P8 black
+(the pixels' owner); P9 … P12 the game's own, measured from the spike's recording as dark green, pale yellow, tan and
+slate blue. Lifted game: 4.3 ms a frame on average, 5.6 at the most; a palette switch rewrites the whole board (960
+pixels) in one frame within that. Start-location rings are the most saturated glyph (the spike's C2), but 121 × 62 and
+hollow, they overlap into arcs 16 apart: not tried.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
