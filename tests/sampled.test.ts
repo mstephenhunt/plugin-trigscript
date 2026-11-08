@@ -193,9 +193,10 @@ describe("music.perform", () => {
 });
 
 describe("loudness and sympathy", () => {
-  it("measures a full-scale 997 Hz sine on one channel at −3.01 LUFS, and brings a clip to a loudness", () => {
+  it("measures a full-scale 997 Hz sine at −3.01 LUFS on one side, 0 from both (as the game plays one channel), and brings a clip to a loudness", () => {
     const sine = tone(997, 3, { volume: 1, rate: 48000 });
-    expect(sine.lufs).toBeCloseTo(-3.01, 1);
+    expect(sine.pan(-1).lufs).toBeCloseTo(-3.01, 1);
+    expect(sine.lufs).toBeCloseTo(0, 1);
     expect(sine.gain(0.1).loudness(-20).lufs).toBeCloseTo(-20, 1);
     expect(makeClip(new Float32Array(48000), 48000).lufs).toBe(-Infinity);
   });

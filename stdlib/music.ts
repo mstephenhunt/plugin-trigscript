@@ -352,11 +352,17 @@ export function sampled(set: Samples, options: SampledOptions = {}): Instrument 
         const count = counts.get(key) ?? 0;
         counts.set(key, count + 1);
         const z = pick(zonesFor(set.zones, "attack", key, v), count, random());
-        let off = damped(n.end), stolen = false;
-        // The same key struck again while it sounds: the sound before stops, quickly, under the new one.
-        for (let j = k + 1; j < order.length; j++) if (order[j].pitch === n.pitch && order[j].at > n.at) { if (order[j].at < off) { off = order[j].at; stolen = true; } break; }
+        let off = damped(n.end), stolen = false, release = releaseOf(z);
+        // The same key struck again while it sounds: the sound before stops, quickly, under the new one — held by the
+        // pedal or still dying away after it was let go (a string struck again starts again).
+        for (let j = k + 1; j < order.length; j++) if (order[j].pitch === n.pitch && order[j].at > n.at) {
+          const next = order[j].at;
+          if (next < off) { off = next; stolen = true; release = 0.12; }
+          else if (next < off + release) release = Math.max(0.1, next - off + 0.1);
+          break;
+        }
         const held = Math.max(0.005, off - n.at);
-        parts.push({ clip: voice(z, key, v, held, stolen ? 0.12 : releaseOf(z), rate), at: n.at });
+        parts.push({ clip: voice(z, key, v, held, release, rate), at: n.at });
         if (!stolen) { const r = letGo(key, v, held, count); if (r) parts.push({ clip: r, at: off }); }
       });
       if (releases) for (const [down, up] of pedal) {

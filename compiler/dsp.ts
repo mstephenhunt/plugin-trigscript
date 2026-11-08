@@ -333,9 +333,11 @@ function biquad(x: Float32Array, [b0, b1, b2, a1, a2]: Biquad): Float32Array {
  * Integrated loudness in LUFS, as ITU-R BS.1770-4 measures it (EBU R 128's figure): each channel through the K-weighting
  * (a high shelf, +4 dB above 1.7 kHz, then a high-pass at 38 Hz, made for the clip's rate as libebur128 makes them),
  * its power over 400 ms blocks three-quarters overlapping, the blocks under −70 LUFS left out, then those more than
- * 10 LU under the mean of the rest. −Infinity for silence.
+ * 10 LU under the mean of the rest. −Infinity for silence. A clip of one channel is measured as the game plays it, from
+ * both sides (a full-scale 997 Hz sine: 0 LUFS, where BS.1770 has −3.01 for it on one channel alone).
  */
 export function loudness(chans: Channels, rate: number): number {
+  if (chans.length === 1) chans = [chans[0], chans[0]];
   let K = Math.tan((Math.PI * 1681.974450955533) / rate);
   const Vh = 10 ** (3.999843853973347 / 20), Vb = Vh ** 0.4996667741545416, Q1 = 0.7071752369554196;
   let a0 = 1 + K / Q1 + K * K;

@@ -563,7 +563,8 @@ ${kw}interface Clip {
   readonly peak: number;
   /**
    * How loud it is as a whole, in LUFS (ITU-R BS.1770, the figure EBU R 128 and the streaming services use): −14 to
-   * −16 for music heard on its own, −23 for broadcast. Reading it works the samples out.
+   * −16 for music heard on its own, −23 for broadcast. One channel is measured as the game plays it, from both
+   * sides. Reading it works the samples out.
    */
   readonly lufs: number;
   /** The part from \`from\` to \`to\` seconds (the end when left out). */
