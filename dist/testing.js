@@ -5163,7 +5163,8 @@ function expect(actual) {
       /** A text shown to a player: all of it, or a pattern it matches. `to`: only what that player was shown. */
       toHavePrinted: (e, options) => {
         const lines = sim("toHavePrinted").printed(options?.to);
-        if (lines.some((l) => typeof e === "string" ? l === e || l.includes(e) : e.test(l)) !== not) return;
+        const matches = (l) => typeof e === "string" ? l === e || l.includes(e) : e.test(l);
+        if (lines.some((l) => matches(l) || matches(l.replace(/[\x01-\x1f]/g, ""))) !== not) return;
         throw new ExpectError(`expected ${not ? "nothing" : "something"} printed that matches ${brief(e)}; printed: ${lines.length ? lines.map((l) => JSON.stringify(l)).join(", ") : "nothing"}`, show(e), show(lines));
       },
       /** The simulator said a program did what is always a mistake; asking for it is what lets a test go on past it. */
