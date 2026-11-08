@@ -14,7 +14,8 @@
 //   - one, two or three lines ring a chime of as many notes on the next beat.
 // A ghost shows where the piece would land: four grey Overlords of Player 2's, the computer. Remastered's minimap shows
 // no units of Players 9 to 12 (plays 2 and 3, 2026-11-08), and the computer is the one slot that owns no piece; it
-// moves its own units, so each redraw takes away all of its Overlords in the well first.
+// moves its own units, and an air unit on the move pushes the pieces' Overlords off their cells (play 4), so the
+// ghost is taken away and made again every few frames, all of the computer's Overlords on the screen with it.
 //
 // A D move (hold to slide), W turns clockwise, Q the other way, S drops (hold to keep dropping), Space all the way,
 // E holds the piece for later. Host it as a multiplayer game, alone, with the game's music off.
@@ -111,6 +112,8 @@ const HIGH = 7, LOW = 10;
 const TITLE = 0, PLAYING = 1, OVER = 2;
 /** Where the ghost's Overlords are made and taken away: a cell, or the whole well. */
 const GHOST = reserveLocation("blocks: the ghost piece");
+/** How often the ghost is made again, in frames. */
+const GHOST_EVERY = 1;
 
 
 program(async () => {
@@ -144,7 +147,12 @@ program(async () => {
   /** A level was reached, or four lines went at once, since the band was last told. */
   let leveled = false, tetris = false;
   // The ghost: where the piece would land, four of the computer's Overlords; drawn again when the piece moves or turns.
+  const ghostX = [0, 0, 0, 0];
+  const ghostY = [0, 0, 0, 0];
+  const ghostOn = [0, 0, 0, 0];
   let ghostKey = -1;
+  /** Frames since the ghost was made: it is made again every GHOST_EVERY, before the computer can move it far. */
+  let ghostAge = 0;
 
   /** A cell of the well, on the board and on the screen. */
   function cell(x: number, y: number, color: number) {
@@ -316,18 +324,32 @@ program(async () => {
     hud.music = s;
   }
 
-  /** Every Overlord of the computer's in the well taken away: it may have moved one off its cell. */
+  /** Every Overlord of the computer's on the screen taken away, wherever it has wandered to. */
   function clearGhost() {
-    centerLocation(GHOST, WELL_X * 64 + WELL_W * 32, WELL_Y * 64 + WELL_H * 32, WELL_W * 64, WELL_H * 64);
+    centerLocation(GHOST, SCREEN_W * 32, SCREEN_H * 32, SCREEN_W * 64, SCREEN_H * 64);
     removeUnitAt(players.P2, units.ZergOverlord, "All", GHOST);
+    ghostOn[0] = 0; ghostOn[1] = 0; ghostOn[2] = 0; ghostOn[3] = 0;
   }
 
   /** The ghost where the piece would land now; taken away when no game is on. */
   function ghost() {
+    // A ghost cell the piece (or the stack) has come into goes before the piece's Overlord is made there: two air units
+    // on one spot push each other apart, and the piece's would stay off its cell (play 4, 2026-11-08).
+    let j = 0;
+    while (j < 4) {
+      if (ghostOn[j] === 1 && board[ghostY[j] * WELL_W + ghostX[j]] !== 0) {
+        centerLocation(GHOST, (WELL_X + ghostX[j]) * 64 + 32, (WELL_Y + ghostY[j]) * 64 + 32, 32, 32);
+        removeUnitAt(players.P2, units.ZergOverlord, 1, GHOST);
+        ghostOn[j] = 0;
+      }
+      j++;
+    }
     // (Not its row: falling does not move the ghost.)
     const key = hud.mode === PLAYING ? (piece * 4 + turn) * 32 + px + 4 : -2;
-    if (key === ghostKey) return;
+    ghostAge++;
+    if (key === ghostKey && ghostAge < GHOST_EVERY) return;
     ghostKey = key;
+    ghostAge = 0;
     clearGhost();
     if (hud.mode !== PLAYING) return;
     // Down as far as the piece would go, with the piece itself out of the way.
@@ -343,6 +365,9 @@ program(async () => {
       if (cy >= 0 && board[cy * WELL_W + cx] === 0) {
         centerLocation(GHOST, (WELL_X + cx) * 64 + 32, (WELL_Y + cy) * 64 + 32, 32, 32);
         createUnit(players.P2, units.ZergOverlord, 1, GHOST);
+        ghostX[k] = cx;
+        ghostY[k] = cy;
+        ghostOn[k] = 1;
       }
       k++;
     }
@@ -443,3 +468,15 @@ test("the title, a game, and the music it asks for", (sim) => {
   expect(sim).toHavePrinted("Game over. Space to play again");
 });
 
+
+test("every Overlord stays on its cell, the ghost's too", (sim) => {
+  sim.frames(10).press("Space").frames(20);
+  // Pieces left to fall onto their ghosts, then dropped all the way.
+  sim.frames(900);
+  for (let i = 0; i < 8; i++) sim.press("Space").frames(40);
+  sim.frames(100);
+  // A cell's centre is 32 past a multiple of 64; the game puts a made unit a few pixels off it, never half a cell.
+  const away = (v: number) => { const d = (((v - 32) % 64) + 64) % 64; return d > 12 && d < 52; };
+  const off = sim.units({ type: units.ZergOverlord }).filter((u) => u.alive && (away(u.x) || away(u.y)));
+  expect(off.map((u) => `P${u.owner + 1} at ${u.x},${u.y}`).join(", ")).toBe("");
+});
