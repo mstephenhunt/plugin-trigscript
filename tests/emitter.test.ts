@@ -17,6 +17,7 @@ import ts from "typescript";
 import { compileScript } from "../compiler/compiler";
 import { defaultScriptNames } from "../compiler/names";
 import { emitOwn } from "../compiler/backend/own";
+import { ownErrors } from "../compiler/backend/errors";
 import { virtualKey } from "../compiler/input";
 import { simulatePrograms } from "../compiler/simulateIr";
 import { Simulation } from "../compiler/simulate";
@@ -1838,6 +1839,70 @@ describe("a map of our own, errors", () => {
       "    if (e instanceof Error) print(`${e instanceof RangeError} ${e.message}`);",
       "  }",
     ].join("\n"), "function forever(n: number): number {\n  if (n > 1000000) return 0;\n  return forever(n + 1) + 1;\n}"), ["true Maximum call stack size exceeded"]);
+  });
+
+  describe("a message made where it is read", () => {
+    const check = "function check(n: number) {\n  if (n > 2) throw new RangeError(`too big: ${n} of ${n * 2 - 7}`);\n  return n + 1;\n}";
+    /** The program's IR once the errors are written out for a map of our own, and the triggers of the throw's line (2). */
+    const built = (body: string) => {
+      const r = compileScript(ts, { "main.ts": program(body, check) }, defaultScriptNames(), { lib: defaultLib() });
+      expect(r.diagnostics).toEqual([]);
+      const o = emitOwn(r);
+      if (typeof o === "string") throw new Error(o);
+      const message = r.ir[0].errors!.message;
+      const made = (x: unknown): boolean => Array.isArray(x) ? x.some(made) : !!x && typeof x === "object" && ((x as Stmt).kind === "assignText" && (x as { target: string }).target === message || Object.values(x).some(made));
+      const atThrow = o.runs[0].graph.triggers.filter((t) => t.at?.line === 2);
+      return { ir: ownErrors(r.ir[0]), made, acts: atThrow.reduce((n, t) => n + t.acts.length, 0) };
+    };
+
+    it("makes no text where an error is thrown, and no function to make one, when nothing reads its message", () => {
+      const loop = "  let c = 0;\n  for (let i = 0; i < 5; i++) {\n    try { check(i + k); } catch { c += 1; }\n  }\n  print(`${c}`);";
+      const { ir, made, acts } = built(loop);
+      // (The throw keeps its two numbers and which throw it is: no text is made in the function that throws, and no
+      // function makes one; only an uncaught error said would.)
+      expect(made(ir.functions!.find((f) => f.name === "check"))).toBe(false);
+      expect(ir.functions!.some((f) => f.id === "@error.message")).toBe(false);
+      expect(acts).toBeLessThan(10);
+      same(program(loop, check), ["4"]);
+    });
+
+    it("prints the same message, numbers and all, where a catch reads it", () => {
+      const read = "  for (let i = 0; i < 5; i++) {\n    try { check(i + k); } catch (e) { if (e instanceof Error) print(`${i}: ${e.message}`); }\n  }";
+      const { ir, made, acts } = built(read);
+      // (Made where it is read, once: not where it is thrown.)
+      expect(made(ir.functions!.find((f) => f.name === "check"))).toBe(false);
+      expect(made(ir.functions!.find((f) => f.id === "@error.message"))).toBe(true);
+      expect(acts).toBeLessThan(10);
+      same(program(read, check), ["1: too big: 3 of -1", "2: too big: 4 of 1", "3: too big: 5 of 3", "4: too big: 6 of 5"]);
+    });
+
+    it("keeps each throw's own message when a later one is caught unread, or thrown with a message known when built", () => {
+      same(program([
+        "  try { check(k + 1); } catch {}",
+        "  try { throw new Error(\"known\"); } catch (e) { if (e instanceof Error) print(e.message); }",
+        "  try { check(k + 5); } catch {}",
+        "  try { throw new Late(k); } catch (e) { if (e instanceof Error) print(e.message); }",
+        "  try { check(k + 2); } catch (e) { if (e instanceof Error) print(e.message); }",
+        "  try {",
+        "    try { check(k + 3); } finally { print(\"finally\"); }",
+        "  } catch (e) {",
+        "    if (e instanceof Error) print(`outside: ${e.message}`);",
+        "  }",
+        "  try {",
+        "    try { check(k + 4); } catch (e) { throw e; }",
+        "  } catch (e) {",
+        "    if (e instanceof Error) print(`again: ${e.message}`);",
+        "  }",
+      ].join("\n"), `${check}\nclass Late extends Error {\n  constructor(by: number) {\n    super(\`late by \${by}\`);\n  }\n}`), [
+        "known", "late by 2", "too big: 4 of 1", "finally", "outside: too big: 5 of 3", "again: too big: 6 of 5",
+      ]);
+    });
+
+    it("says an uncaught error's message as it was made where it was thrown", () => {
+      same(program("  try { check(k + 9); } catch {}\n  print(\"before\");\n  check(k + 1);\n  print(\"after\");", check), [
+        "before", "\x06TrigScript: uncaught RangeError: too big: 3 of -1, line 2.",
+      ]);
+    });
   });
 });
 

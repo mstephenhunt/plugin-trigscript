@@ -4026,11 +4026,16 @@ the ledger is the list it can be written again from at 4.0.
   1's lead (1.5×) — the argument is copied into each place of the parameter (here three: its cell, the home a signed
   comparison reads, the action that adds 1; about 170 ns), and the result is copied out (75 ns). Value ranges carried
   through calls would let a parameter never below zero be compared without a home; the result could be read where it
-  is. A throw is 3.2× eudplib's (W2), and most of what is left is its message, made where it is thrown (7.3 µs of 8.7
-  when the message has a number in it): the throw could keep where it was thrown and its values, and the message be
-  made only where it is read — a `catch` that reads `e.message`, an uncaught error said — about 1.3 µs a throw, 20×
-  eudplib's, for the many catches that read nothing. In code only an error goes through, a signed comparison still
-  reads its variable's home (the variable plus 2³¹), a place every write keeps. The map is bigger (1.52 MB to 1.05).
+  is. A message is made only where it is read since 2026-11-08 (`errors.ts`, `lazyMessages`): a throw keeps which
+  throw it is and its message's numbers, and the text is made before whatever reads it — a `catch` that reads
+  `e.message` or lets `e` go on, an uncaught error said, a `finally` on the error's way, a task's error kept for its
+  `await`. W2 went from 0.875 ms to 0.052 (8.7 µs a throw to 0.5, 55× eudplib's). A message known when built waits
+  too: it was not cheap, each throw copying the text into every place of the message the program reads (W2 with
+  "too big" for its message was 0.266 ms). C–D and W3, whose catches mostly read nothing, went from 0.080 ms to 0.067
+  and from 0.095 to 0.087; a catch that reads the message pays for the call that makes it, under 1 µs (A–B 0.206 to
+  0.207, the uncaught error said 0.022 to 0.023); the payload went from 1.14 MB to 1.15. In code only an error goes
+  through, a signed comparison still reads its variable's home (the variable plus 2³¹), a place every write keeps. The
+  map is bigger (1.52 MB to 1.05).
 - **Tasks on a map of our own (step 11, part 2), what is left:** a start that can run while its tasks still run lays
   the task's body out once a slot (`max`, 16 unless said): the fastest at its turn, and small since a task's `catch`
   is laid out once (a 16-slot start's body is 9 triggers in the probe), but a large body grows the map sixteen times;
@@ -5005,16 +5010,17 @@ uncaught error thrown in a called function). The two rows of a task's error awai
 | Lifted game, Remastered's weights (`probes/own-errors.ts`) | Ours | eudplib |
 | --- | ---: | ---: |
 | A–B: a throw caught, classes told apart, messages made while the game runs | **0.211 ms** | 1.492 ms |
-| C–D: thrown again, `finally`, out of called functions | **0.080 ms** | 0.125 ms |
+| C–D: thrown again, `finally`, out of called functions | **0.067 ms** | 0.125 ms |
 | E–F: up through a function that calls itself; a stack run out at 1,024 calls, caught | **0.611 ms** | 2.412 ms |
 | W1: 300 calls of a function that may throw, none thrown | **0.183 ms** | 0.208 ms |
-| W2: 100 errors thrown in a called function, each caught (a number in the message) | **0.876 ms** | 2.846 ms |
-| W3: an error up through 40 frames, four times | **0.096 ms** | 0.364 ms |
+| W2: 100 errors thrown in a called function, each caught (a number in the message) | **0.052 ms** | 2.846 ms |
+| W3: an error up through 40 frames, four times | **0.087 ms** | 0.364 ms |
 | W4: 200 turns through a `try` with a `finally`, one in two left by `continue` | **0.029 ms** | 0.058 ms |
 | the uncaught error said | **0.023 ms** | 0.057 ms |
 | the map | 1.52 MB | 1.05 MB |
 
-W1 is where the call is, not the error: the error costs one action a call. What is left is in the ledger's *Open* list.
+W1 is where the call is, not the error: the error costs one action a call. C–D, W2 and W3 are since a message is made
+where it is read (2026-11-08; 0.080, 0.875 and 0.095 ms before). What is left is in the ledger's *Open* list.
 
 Checked: `tests/emitter.test.ts` ("a map of our own, errors": try and catch, the classes and a field, a rethrow and
 `finally` on every way out, out of called functions and a function's own `try`, uncaught, through recursion and its
