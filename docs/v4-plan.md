@@ -6548,6 +6548,73 @@ anyone else's name.
 `fur-elise-visual` (visualizer: worktree ~/github/plugin-trigscript-fur-elise-visual). Each records its results
 below in its own subsection.
 
+#### S7 visualizer probe (built 2026-11-08)
+
+Branch `fur-elise-visual`. The question: does a piano roll drawn by the game look good, and does it stay with the music
+when the music is rendered and the picture is played back frame by frame?
+
+**How it is made.** Everything is worked out when the script is built. `probes/lib/fur-elise-score.ts` is our own
+transcription of the A section (bars 1–22 with both repeats, 45 bars, 34 s) and a passage of our own in the manner of the
+D-minor C section (14 bars, 10 s: chords on every eighth over repeated low D's, a diminished arpeggio over repeated A's,
+a last chord), played on a tempo that moves (downbeats 6% long, `rit` bars slowing to their end), so the notes are not
+on a grid. Bars 12–14 (the octave E's before the theme returns) are from memory and must be checked against an edition.
+The sound is a stand-in: `music.presets.keys` mixed at each note's time with `mixdown`, a plate reverb, one Ogg a part;
+the storm adds a pad. `probes/lib/note-timeline.ts` (tested in `tests/note-timeline.test.ts`) puts notes on the game's
+clock (`frameNotes`: nearest frame, at least one frame long, chords marked), fits the keyboard (`keyRange`, `keyX`),
+works out a roll's cells at a frame (`rollCells`, falling or rising, a row standing for `step` frames) and turns pictures
+into changes (`changesOver`). `probes/lib/fur-elise-run.ts` (tested in `tests/fur-elise-run.test.ts`) lays the parts
+end to end, draws every frame's picture and flattens the changes into four tables (x, y, unit and old colour, new
+colour; 78,861 changes over 2,451 frames, 1.5 MB of payload). The program only reads them: per frame, the clips that
+start, the text, the changes (made, taken away, or handed to another player with Give Units), the effects.
+
+**The screens** (`probes/lib/fur-elise-layout.ts`, base map `probes/lib/fur-elise-map.mts`, 128 × 128 Space Platform,
+Map Revealers placed): the minimap roll is Korobeiniki's Overlord board, a cell two tiles, a column a key, D2–E6 (51 of
+the 64 columns), 40 rows a row every two frames (3.4 s ahead), a two-row keyboard (every key above, the white keys'
+fronts below). The main screen is a stage on Platform: 30 white keys 20 px apart with the black keys a row above,
+falling notes 12 rows of 18 px, all Flag-looking Spider Mines (the S6 spike's pixel, made with units.dat's flingy
+written around each Create Unit). Colours by owner, set with CRGB: P3 white keys, P4 indigo black keys, P5 gold right
+hand, P6 cyan left hand, P7 red storm chords, P8 black; P2 the computer owns nothing. The sync lamp is a start-location
+ring at the view's top left, white on every frame a note starts and black otherwise.
+
+**The parts** (seconds from the start): T 2, six clicks 24 frames apart in one clip with the lamp; A1 9, the A section,
+the stage falling a row a frame; A2 22, from bar 9 the stage falls a row every two frames; C-a 45, the storm, white
+keys flashing red for two frames on each chord, a Disruption Web over each downbeat for 8 frames; C-b 50, explosions
+(a Wraith made and killed on each downbeat, three Battlecruisers on the last two chords; their death sounds are
+heard); S1 57, the theme twice (17 bars, 12 s) as one clip; S2 72, the same as a clip a bar, each bar's notes mixed from
+the frame the bar starts in and played on that frame, so each note lands where S1 has it; V1 86, the theme with notes
+rising from the keys; V2 93, the keys alone; the end at 102.
+
+**Found on the way, in the lifted game:**
+- A Spider Mine made where it would overlap another is put beside its place, and one taken away in the same frame still
+  counts until the frame ends. Recolouring by Remove + Create at the same spot moved the new one; Give Units (the
+  owner, so the colour, changes where the unit stands) does not. The layout keeps every two mines at least 16 px apart
+  and rows 18 apart; a falling cell that would overlap one of its frame or the frame before waits a frame (the D#5 next
+  to a departing E5 was the case that showed it). With that, every frame of the run in the lifted game holds exactly
+  the worked-out picture (test "every frame of the run …", 2,470 frames).
+- A Disruption Web made by Create Unit is refused by 1.16.1; Remastered is for the play. Wraiths and Battlecruisers are
+  made (seen with the kill left out) and none is ever alive after its frame. Reading their deaths gave 0 — the build's
+  variables live in the deaths table, so deaths are no check for this.
+- A probe's module-level `sounds` collides with a name of the build (`Identifier 'sounds' has already been declared`).
+
+**Cost** (A4's tap, lifted game): 8,775 conditions and actions a frame on average, 54,932 at the most (frame 1078, the
+storm's flashes and chords: 193 changes in one frame) — 0.09 ms on average, 0.55 ms at the most by Remastered's weights,
+of ~15 ms. `game-check`: 321,098 accesses, 0 ending the game, 0 ignored, 0 never seen. Units for the pictures: under 600
+at once. Map 1.66 MB (the payload, 1.5 MB, compresses well; the rest is the Ogg clips).
+
+**What to measure from the recording** (sheet `probes/answers/fur-elise-visual.txt`; Remastered graphics, music off,
+sound effects on, the whole run): T, each click against the lamp turning white — the plain audio-to-picture delay;
+A and S1, each attack in the audio against the lamp, over 34 s and 12 s — the delay and any drift within one long clip;
+S2 against S1, the same notes, each bar on the mixer's grid on its own (0–21 ms bar to bar); the minimap's redraw rate
+from the roll's movement. Bad Apple's picture led its sound by 23 ms with no drift over 3½ minutes; if the delay here is
+steady, the Showcase can shift the picture by a frame to meet it.
+
+**Open, for the user after the play:** falling (A1/A2) or rising (V1) or keys alone (V2); a row a frame or every other
+frame on the main screen; red flashes and Disruption Webs (if Remastered makes them) for the storm, or explosions with
+their sounds, or neither; whether the Flags read as a keyboard (the S6 rule: bright, saturated colours only); whether the
+minimap roll is big enough to show in the video or the main screen carries it alone. Not built: a fog-board roll
+(Remastered graphics blurs the fog minimap and it has two tones, no hands; the unit board played well for Korobeiniki),
+hallucinations (a unit's hallucinated flag is not its tint) and spells by order (no Cast order from a trigger).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
