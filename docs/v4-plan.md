@@ -6548,6 +6548,56 @@ anyone else's name.
 `fur-elise-visual` (visualizer: worktree ~/github/plugin-trigscript-fur-elise-visual). Each records its results
 below in its own subsection.
 
+#### S7 sound probe (built 2026-11-08)
+
+Branch `fur-elise`, three commits on the library and one on the probe; not played yet.
+
+**The library gained:**
+- *`.samples` files* (`compiler/samples.ts`): a sampled instrument among a script's files — recordings and zones as an
+  SFZ instrument has them (keys, strengths, attack / release / pedal triggers, volume, amp_veltrack, ampeg_release,
+  rt_decay, tune, keytrack, round robin, lorand/hirand), 16-bit coded without loss (fixed predictors and Rice codes,
+  about a sixth of 16-bit in base64 for a piano's decaying notes). Decoded when a build first needs a recording; a
+  check names everything by key without decoding. `scripts/make-samples.mts` makes one from an SFZ file or a folder
+  named by note (`--keys --layers --seconds --octave --detect --pitch`). `samples(zones)` makes one in a script from
+  its own clips (imported `.sound` files, say). In the full declarations only, not the compact one a language model
+  reads (it would go over its third).
+- *`music.sampled(set, options)`*: the recording nearest each key (moved at most to it), the one made at the note's
+  strength; let go, 60 dB down over the zone's release and the release zones play (damper, string resonance, quieter
+  the longer it was held). Instruments may `strike` at a velocity (a pattern's "@" picks the recording) and play a
+  performance's notes `together`: the pedal holds what is let go and sounds itself, a re-struck key cuts the sound
+  before, `resonance` adds sympathetic strings.
+- *`music.perform(options, parts)`*: a score's notation a part at a time — lengths with dots and triplets, ties,
+  rests, `@` velocities, staccato, accents, pp … ff and hairpins, `ped` / `*`, bar lines checked — at a tempo map
+  ([bar, bpm] points), holds and seeded unevenness. It returns the timeline the visualizer needs: each note's `at`,
+  `end`, `pitch`, `velocity`, `part`, `voice`, `bar`, `beat`, `frame`; `bars`; `pedal`. `music.render` mixes it (parts
+  on one instrument played together, heard as the first of them) and takes `loudness` (LUFS before the limiter).
+- *`Clip.lufs`, `loudness(lufs)`* (BS.1770-4; a clip of one channel measured as heard from both sides, as the game
+  plays it) and *`Clip.resonance({ pedal })`* (a comb filter a string, A0 … E6). ENGINE stays "sound 3": no existing
+  clip is made differently.
+
+**The probe** (`probes/fur-elise-sound.ts`, sheet `probes/answers/fur-elise-sound.txt`, transcription
+`probes/lib/fur-elise-score.ts` from the Breitkopf & Härtel complete edition on Wikimedia Commons; instruments by
+`probes/lib/fur-elise-sound-gen.mts` from ~/github/samples, never committed): five rendered items, each announced —
+1 the old single-sample sampler on the grid, 2 the Salamander grand on the grid (mf), 3 the A section played (tempo
+map, dynamics, Beethoven's pedal marks, resonance 0.07, hall plate 0.84, 49 s), 4 the storm C1 … C17 with strings,
+horns, trombones, tuba and timpani (32 s), 5 the theme's last bars into the storm (46 s). Map 3.5 MB, the five Oggs
+3.36 MB (quality 6), the run 5,377 frames (3:46). Measured on the decoded files: −17.0 LUFS for 1–3, −15.1 for 4–5,
+true peaks −1.4 … −6.5 dBTP; the limiter takes at most 2.5 dB off the theme's loudest notes (at −16 it took 5.7, so
+−17), 4 dB off the storm's hits. The orchestra's parts balanced by measuring each alone. Lifted game (game-check,
+5,800 frames): 0 ending, 0 never seen; the labels and items on the frames written. Instruments: piano 125 MB of
+`.samples` (483 recordings, keys 28–91, 16 layers, 10 s), VSCO 2.1–15 MB each; a check 2.8 s, a build 18 s.
+
+**Found on the way:** the first loudness read mono clips 3 dB low against the game (which plays one channel from
+both sides); a re-struck key's release tail ran on under the new note (now cut); bar 11 marked mp stood 4 dB over the
+rest and the limiter flattened it (now p with the melody note leaning).
+
+**Open:** the user's ears — items 1–5 and the questions on the sheet (resonance amount, hall, balance, the change into
+the storm). The editor cannot make a `.samples` file, and a map keeps a script's files: a 125 MB piano in the map is
+out of the question — a sampled instrument wants to live outside the map (a library the plugin fetches, or the
+user's disk) with only the renders inside. Velocity crossfades between layers and per-note release velocity are not
+modelled. The C section's bars C6 and C16 were hard to read in the scan (C6's chord read as C4 F#4 A4 over D#2, a
+diminished seventh to the E of C7; C16's bass as A2).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

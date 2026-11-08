@@ -1,0 +1,59 @@
+TrigScript Showcase #3, Für Elise: the sound probe
+=================================================
+
+StarCraft: Remastered, hosted as a multiplayer game, alone, with the game's MUSIC OFF. Headphones help.
+Record one run (about 3 min 45 s). It plays five items, each announced in the text lines before it, a few
+seconds apart, then says it is done. Each item is one sound mixed when the map was built, so every note is
+exactly where it was written.
+The five items are also beside this sheet, in fur-elise-sound-preview/, to play outside the game (the same Ogg
+files the map has).
+
+The lobby should say "Für Elise sound probe". Does the ü show, or something else? ->
+
+1 of 5 — the old way (32 s): one recording of the piano's middle C, sped up or slowed for every other key, imported
+  as the editor imports a sound (one channel, 22 kHz), every note on the grid at one strength, no pedal.
+  This is what music.sampler could do before. It is here only to compare with.
+  How does it sound to you (a few words)? ->
+
+2 of 5 — the sampled piano, still on the grid (35 s): the Salamander grand, the recording made nearest each key
+  (a recording every three keys, moved at most one semitone), the one made at each note's strength (16 strengths),
+  the damper's sound when a key is let go. Same notes, same tempo, same strength as item 1, no pedal.
+  Better than 1? Does it sound like a real grand piano? ->
+  Anything wrong: a note out of tune, a click, a note cut off oddly? ->
+
+3 of 5 — played (49 s): the same opening, but with its own tempo (it leans into bar 4, slows into the middle part,
+  holds back on the turn to the high E, slows into the last A), dynamics (p, the middle part rising, pp on the turn,
+  the last A ppp), the pedal on each arpeggio as Beethoven marks it (and its sound), the strings ringing with the
+  pedal down (sympathetic resonance), and a concert hall.
+  Times in the item: 0:13 the middle part (C major), 0:17 the turn (E, the high E, E–D#), 0:23 the theme again,
+  0:34 the last A, held in the pedal until about 0:40, then the hall's tail.
+  Does it feel played by a person, or still mechanical? ->
+  The tempo: too much rubato, too little, or right? ->
+  The pedal: is each arpeggio's pedal clean (no blur into the E–D# figure)? ->
+  The strings ringing with the pedal: can you hear them? Do they sound like a piano, or like a metallic ring? ->
+  The hall: too much, too little, right? (The plan is a smaller room for the first A, this hall for the last.) ->
+  Loudness: the piano items are made to −17 LUFS, the storm to −15. Too quiet against the game, fine? ->
+
+4 of 5 — the storm (32 s): the D minor section over the drumming A (C1 … C17), piano and orchestra: violins on the
+  chords' top line, violas under them, celli spiccato doubling the drumming bass, basses an octave down, horns and
+  trombones on the harmony, tuba on the bass, timpani on A and E. f, a lighter middle (mf), then rising over the
+  B-flat and B to the ff A minor chord, and the quiet E chord that ends it.
+  Times: 0:00 C1 (the diminished chord), 0:11 C9 (it starts again), 0:15 the climb over B-flat, 0:20 the ff chord.
+  Does the orchestra sound like an orchestra? Which instrument sounds worst? ->
+  Balance: is the piano still the lead? Too much brass? Timpani? Strings too quiet or too loud? ->
+  Is it "stormy" enough, or should it be bigger (faster, louder, more timpani, rolls)? ->
+
+5 of 5 — into the storm (46 s): the theme's last bars as in item 3 (pp), one bar of the drumming A alone getting
+  louder under a soft timpani roll, then the storm's first phrase with the orchestra coming in (at 0:12).
+  Does the change from the solo piano to the orchestra work? Too sudden, too soft, right? ->
+
+Anything wrong anywhere: crackle, clipping, a sound that cuts off, a hitch in the game? ->
+
+What to decide (your call):
+  - The arc: keep the orchestra to the storm only, or let the strings creep in earlier (the last bars before it)? ->
+  - Item 3's hall for the last A; a smaller room for the first? ->
+  - More velocity layers are in the piano (16); the probe uses all of them. Fine to keep the map at ~3.5 MB? ->
+
+Credits (in the map description too): Piano: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0).
+Orchestra: VSCO 2 Community Edition by Versilian Studios (CC0). Beethoven's score is in the public domain; the
+transcription and the arrangement are ours, written from the Breitkopf & Härtel complete edition (1888).
