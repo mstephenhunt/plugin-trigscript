@@ -6542,6 +6542,36 @@ at the most; look (a) 1.14 / 2.63 ms, 116 / 371 units; a walk with "steer" turni
 round the Marine, 1.48 / 6.6 ms and 133 / 817 units. Within the smooth budget by far; the units at the most are near
 the ~950 the game makes in a frame, which is why the arena and the walls are drawn first. Not played yet.
 
+**Probe 1 played (2026-11-08, Remastered graphics, "a bit janky").** The view changed 7.9 times a second and unevenly
+(often 3-4 game frames apart, pauses of 0.5-2 s), each change large (turns of up to 0.25 radians a game frame); the
+Marine hardly moved, body-blocked by the monsters packed round it, which were then seldom in the view; Remastered's
+minimap low in contrast on the Badlands board; the walls thin far outlines in an open cave, not rooms.
+
+**Probe 2 (`probes/first-person-2.ts`, "TrigScript first person 2").** The play apart from the drawing is
+`probes/lib/first-person-play.ts` (the camera, its turning and walking, the faces of the walls), for whatever draws the
+picture next.
+
+- A picture every game frame. A picture every other frame met the minimap's own redraws (about every other frame, at
+  its own moments) out of step and was sometimes shown twice; drawn every frame, every redraw has a new one. Measured in
+  the lifted game while turning and walking: the picture changed on 515 of 561 frames, 1 frame apart 515 times, 2 apart
+  11 times; the longer gaps are only when nothing moves.
+- Turning in small steps: eased toward the cursor (0.35 of the way a frame), at most 0.07 radians a frame (4 degrees,
+  95 a second); steer at most 0.06; Q E 0.05. A change between two pictures: median 1-3% of the view, at the most 17%.
+- The camera walks by its own collision against the plan's grid (6 pixels a frame, 20 off a wall, each axis on its
+  own so that it slides), and the Marine is put where it is with Move Unit: nothing paths, nothing blocks it.
+- The monsters stop short: the Zerglings' claws reach 112 pixels and the Hydralisks' spines 160 (weapons.dat), so the
+  game's own unit AI holds them 2-3 cells off and they fight from there; only the ones further than 3 cells, or idle,
+  are sent again (twice a second).
+- Rooms (`first-person-map.mts`, ARENA=rooms): the whole map Ice, the view's board plain snow (tile 66); the floor
+  Snow with Dirt in its middle, the walls High Snow. The high ground stops a cell short of the plan's floor, so its
+  cliff stands on the wall's edge: 92% of the plan's floor is walked and 2% of its walls; the view's walls are the
+  plan's, straight. Walls need 5 cells of their own to stand (a stub of 3 shrinks to a notch), so walls are 5-7 cells
+  thick and doors sit at a wall's end. A wall's straight stretch is one face (`faceAt`, runs worked out when built): the
+  outline draws its corners and ends, not a line at every cell.
+- Cost, lifted game, Remastered's weights: 2.3-2.9 ms a frame on average, 4.8 at the most; 170-180 units made a frame
+  on average, 364 at the most (a picture every frame doubles the average of probe 1's every other frame, and stays far
+  inside the budget).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

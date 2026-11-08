@@ -1,0 +1,43 @@
+TrigScript: first person, probe 2 - answers
+Map: trigscript-first-person-2.scx (the lobby says "TrigScript first person 2")
+Single player. Please RECORD THE SCREEN. About 2-3 minutes.
+Start in REMASTERED graphics (the map is now all Ice, made for Remastered's minimap); press F5 about halfway to
+compare Classic, and once more near the end.
+
+What changed since probe 1 ("a bit janky"):
+- a new picture every game frame, and the view turns in small even steps (at most 4 degrees a frame);
+- your Marine no longer walks on orders: the camera walks by itself at a steady speed and the Marine is put where it is
+  (Move Unit), so nothing can block it; W S forward and back, A D sideways;
+- the monsters stop 2-3 cells from you and fight from there (Zerglings reach 3.5 tiles, Hydralisks 5), so they stand
+  in front of you in the view;
+- the arena is rooms, doors and a long hall, with thick walls; a straight wall is one face in the view.
+Controls as before: the mouse turns ("aim" at the start: the view turns toward the cursor), T switches to "steer",
+Q E turn too, V changes how the monsters look. Do not click the Marine (if you did, press Esc).
+Pictures from the game played without anyone: first-person-2-play.png (a walk, look (c)), first-person-2-steps.png
+(16 frames in a row, turning and walking: how small the steps are), first-person-2-crowd.png (standing, the monsters
+coming), first-person-2-steer.png ("steer" turning, look (a)).
+
+1. Smoothness
+  Turning with the mouse: smooth now? Too slow? (it is capped at about 4 degrees a frame, ~95 degrees a second) ->
+  Walking: steady? Too slow or too fast? ->
+  Does the view keep changing evenly while you turn or walk (no stops)? ->
+
+2. Walking
+  Does the Marine on the main screen follow where you walk, and stop at walls? ->
+  Can the monsters still block you? Does the Marine jump or flicker when they crowd it? ->
+  Rooms, doors, the hall: do they read as rooms in the 3D view? ->
+  Do the walls in the view match the cliffs on the main screen? ->
+
+3. The monsters
+  Do they stop in front of you and stay in the view? ->
+  Do the Zerglings attacking from 3 tiles away look wrong on the main screen? ->
+  Which look (V) is best now? ->
+  "aim" or "steer" (T)? ->
+
+4. The look
+  Remastered: is the snow board brighter/clearer than probe 1? ->
+  Classic (F5): which is better now, Classic or Remastered? ->
+
+5. Any slowdown, stutter, missing pieces, "Unit unplaceable" warnings or other messages? ->
+
+Anything else ->
