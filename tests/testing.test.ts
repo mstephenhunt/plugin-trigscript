@@ -59,6 +59,18 @@ test("nothing happens with nobody on the beacon", (sim) => {
     expect(r.triggers).toHaveLength(0);
   });
 
+  it("matches a printed line with its colour codes taken out too, as the lifted game's printed() has it", () => {
+    const r = run(`import { test, expect, program, print } from "trigscript";
+program(() => { print("music: \\x04intro"); });
+test("split by a colour", (sim) => {
+  sim.frames(2);
+  expect(sim).toHavePrinted("music: intro");
+  expect(sim).toHavePrinted("music: \\x04intro");
+  expect(sim).not.toHavePrinted("music: verse");
+});`);
+    expect(outcome(r)).toEqual({ "split by a colour": "passed" });
+  });
+
   it("says where and what when an expect does not hold", () => {
     const r = run(`${WAVES}
 test("wrong", (sim) => {
