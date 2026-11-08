@@ -14,6 +14,7 @@
  * array's end, the stack's depth, the heap full). Nothing here touches the DOM, and what
  * `runTests` returns is plain data: it crosses from the compile worker to the editor.
  */
+import { ORDER_OF_VERB } from "./orders";
 import { ActionType, type ActionRecord, type TriggerRecord } from "../vendor/triggers";
 import { actionDef } from "../vendor/triggerDefs";
 import type { TestCost } from "./gameCost";
@@ -251,6 +252,7 @@ export interface TestWorldLike {
   give(unit: SimUnit, to: number): this;
   morph(unit: SimUnit, type: number): this;
   move(unit: SimUnit, to: number | { x: number; y: number }): this;
+  order(unit: SimUnit, order: "move" | "patrol" | "attack", to: number | { x: number; y: number }): this;
   press(key: string, player?: number): this;
   click(button?: "left" | "right" | "middle", player?: number): this;
   type(line: string, player?: number): this;
@@ -421,6 +423,11 @@ export class TestSim implements TestWorldLike {
     unit.hp = Math.max(1, Math.round((unit.hp * maxHp) / Math.max(1, unit.maxHp)));
     unit.shields = unit.maxShields ? Math.round((unit.shields * maxShields) / unit.maxShields) : maxShields;
     Object.assign(unit, { type, maxHp, maxShields });
+    return this;
+  }
+  /** A unit told to go somewhere: the simulator walks no unit, so it takes the order and stays where it is. */
+  order(unit: SimUnit, order: "move" | "patrol" | "attack", _to: number | { x: number; y: number }): this {
+    if (unit.alive) unit.orderId = ORDER_OF_VERB[order];
     return this;
   }
   /** A unit to a location's centre, or to a point. */

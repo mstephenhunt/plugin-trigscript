@@ -56,6 +56,9 @@ export const wrapAngle = game((a: fixed): fixed => {
   return b;
 });
 
+/** A unit's facing (0 … 255 clockwise from north, as the game keeps it) as an angle of Math.atan2's: 0 east, south π/2. */
+export const facingAngle = game((facing: number): fixed => wrapAngle((facing - 64) * (Math.PI / 128)));
+
 /**
  * The camera: where it stands (pixels of the map, with a fraction) and the way it looks. It walks by its own grid
  * collision, not the game's pathing: nothing a unit does can block it, and it moves the same distance every frame.
@@ -86,6 +89,15 @@ export class Camera {
   turnToward(target: fixed, ease: fixed, most: fixed) {
     const d = wrapAngle(target - this.angle);
     this.turn(Math.min(Math.max(d * ease, -most), most));
+  }
+
+  /**
+   * Follow a point (a unit's place): a share (`ease`) of the way there each frame, so that a unit that moves in steps
+   * is seen moving evenly. 1 is there at once.
+   */
+  follow(x: number, y: number, ease: fixed) {
+    this.x = this.x + (x - this.x) * ease;
+    this.y = this.y + (y - this.y) * ease;
   }
 
   /**

@@ -6572,6 +6572,25 @@ picture next.
   on average, 364 at the most (a picture every frame doubles the average of probe 1's every other frame, and stays far
   inside the budget).
 
+**Probe 3 (`probes/first-person-3.ts`, "TrigScript first person 3"): the Marine drives the view.** The user asked
+for the player to play StarCraft — select the Marine, right-click to move, attack-move — and for the view to follow it
+alone; WASD stays probe 2's. The view reads the Marine's place and **`u.facing`**, a field added for it: the flingy's
+current direction (+0x21, 0 … 255 clockwise from north), whose dword (+0x20) Remastered's emulator allows to read
+(the dump). The view eases toward the facing (0.35 a frame, at most 0.07 radians) so the game's turning steps are not
+seen, and the camera follows the place by half the way a frame. B puts the eye half a cell behind, the Marine drawn
+over its shoulder (as if a cell off, so that it is whole). Tests and fog-frames give it right-clicks through
+**`sim.order(unit, "move" | "patrol" | "attack", to)`**, the Order action (added to the test API; the simulator takes
+the order and walks nothing).
+
+- **Found:** the fog's brushes made over the arena every frame (probes 1 and 2 light the arena so) stopped a Marine sent
+  on a slant under them: it stood with its Move order on (lifted game; with the brushes left out it walked). The likely
+  part of probe 1's "the Marine hardly moved", and a risk for probe 2's monsters. Probe 3's arena is seen through Map
+  Revealers placed with the map (`first-person-map.mts` REVEAL=1, none within 10 rows of the view) instead.
+- Measured on a walk through the rooms (six right-clicks): 2.3 ms a frame on average, 4.4 at the most, 115 units made
+  a frame on average and 285 at the most (no arena brushes); over the shoulder 2.5 / 4.9 ms. The picture changed on
+  514 of 761 frames, 1 frame apart 444 times; longer gaps are a straight walk with nothing new in sight. A change:
+  median 2.3% of the view, 90th 8.7%.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

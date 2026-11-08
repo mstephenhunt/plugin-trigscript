@@ -159,6 +159,12 @@ ${kw}interface Unit {
   matrix: number;
   /** How fast the unit is moving now, in 256ths of a pixel a frame: 0 standing still, 1024 a Marine's walk. Read only. */
   readonly speed: number;
+  /**
+   * The way the unit faces, 0 … 255 clockwise from up the map: 0 north, 64 east, 128 south, 192 west — the game turns a
+   * unit in steps toward where it goes or shoots. Read only. As an angle of Math.atan2's (0 east, down the map
+   * positive): \`(u.facing - 64) * (Math.PI / 128)\`.
+   */
+  readonly facing: number;
   /** What a mineral field or a geyser still holds. */
   resources: number;
   /** Frames left of each effect, 0 … 255: write one to start, lengthen or end it. Stim, ensnare and the rest tick down about every eighth frame. */
@@ -1112,7 +1118,7 @@ export interface SimUnit {
   readonly type: UnitType; readonly owner: Player; readonly x: number; readonly y: number;
   readonly hp: number; readonly maxHp: number; readonly shields: number; readonly maxShields: number; readonly energy: number;
   readonly kills: number; readonly orderId: Order; readonly resources: number; readonly invincible: boolean; readonly burrowed: boolean; readonly cloaked: boolean; readonly hallucinated: boolean;
-  readonly buildTime: number; readonly rank: number; readonly matrix: number; readonly speed: number; readonly speedUpgrade: boolean; readonly hasTarget: boolean; readonly inTransport: boolean;
+  readonly buildTime: number; readonly rank: number; readonly matrix: number; readonly speed: number; readonly facing: number; readonly speedUpgrade: boolean; readonly hasTarget: boolean; readonly inTransport: boolean;
   /** Still on the map. */
   readonly alive: boolean;
 }
@@ -1134,6 +1140,11 @@ export interface Sim {
   morph(unit: SimUnit, type: UnitType): this;
   /** A unit to a location's centre, or to a point in pixels. */
   move(unit: SimUnit, to: Location | { x: number; y: number }): this;
+  /**
+   * A unit told to move, patrol or attack-move to a location's centre or a point, as a player's right-click does. The game
+   * walks it there with its own pathing and turns it as it goes; the simulator walks no unit (it takes the order only).
+   */
+  order(unit: SimUnit, order: "move" | "patrol" | "attack", to: Location | { x: number; y: number }): this;
 
   /** Run the game for so many frames (24 a second at Fastest). */
   frames(n?: number): this;

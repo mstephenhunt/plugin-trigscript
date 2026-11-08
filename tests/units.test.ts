@@ -148,12 +148,13 @@ describe("units: in the simulated game", () => {
     expect(sim.units[0]).toMatchObject({ buildTime: 65535, rank: 255, matrix: 40, hallucinated: true, speedUpgrade: true });
     expect([sim.value("fast"), sim.value("aimed"), sim.value("riding")]).toEqual([0, 0, 0]);
   });
-  it("speed, hasTarget and inTransport are the game's to write", () => {
-    expect(errors("const u = first(); if (u) { u.speed = 5; u.hasTarget = true; u.inTransport = false; u.cloaked = true; }")).toEqual([
+  it("speed, hasTarget, inTransport and facing are the game's to write", () => {
+    expect(errors("const u = first(); if (u) { u.speed = 5; u.hasTarget = true; u.inTransport = false; u.cloaked = true; u.facing = 3; }")).toEqual([
       "2:Cannot assign to 'speed' because it is a read-only property.",
       "2:Cannot assign to 'hasTarget' because it is a read-only property.",
       "2:Cannot assign to 'inTransport' because it is a read-only property.",
       "2:Cannot assign to 'cloaked' because it is a read-only property.",
+      "2:Cannot assign to 'facing' because it is a read-only property.",
     ]);
   });
   it("bounds() reads a location where it is now and writes move it; centerLocation() and bounds() agree", () => {

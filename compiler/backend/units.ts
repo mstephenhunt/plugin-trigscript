@@ -66,6 +66,8 @@ const FIELDS: Partial<Record<UnitNumField, Bits>> = {
   owner: OWNER, type: TYPE, x: X, y: Y, kills: word(0x8f, 1), orderId: ORDER, cooldown: word(0x55, 1), resources: word(0xd0, 2),
   stim: word(0x115, 1), ensnare: word(0x116, 1), lockdown: word(0x117, 1), irradiate: word(0x118, 1), stasis: word(0x119, 1), plague: word(0x11a, 1), maelstrom: word(0x124, 1),
   buildTime: word(0xac, 2), rank: word(0x8e, 1), matrix: word(0x114, 1), speed: word(0x38, 4),
+  // The way the unit faces (+0x21, the flingy's current direction): its dword (+0x20) is read-allowed in Remastered.
+  facing: word(0x21, 1),
 };
 const HP = 0x08 >> 2, SHIELDS = 0x60 >> 2, ENERGY = word(0xa2, 2), STATUS = 0xdc >> 2, USER_ACTION = word(0x93, 1);
 /**

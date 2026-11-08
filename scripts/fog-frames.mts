@@ -5,6 +5,7 @@
  *
  *   npx tsx scripts/fog-frames.mts <script.ts> <map.scx> [--frames=120] [--keys=20-60:W,60-90:D] [--every=10]
  *     [--area=0,0,128,96] [--player=0] [--out=dir] [--mouse=20-60:200,0] [--units] [--from=1] [--changes=0,0,128,78] [--shots-from=N]
+ *     [--orders="20:992,3040;120:1824,3040"]
  *
  * Writes <out>/frame-NNNN.png (a tile 4 pixels: white lit, grey fog, black never seen) for every `every`-th frame and
  * <out>/sheet.png of them side by side. --mouse holds the mouse over spans of frames at a place on the screen, from
@@ -13,7 +14,8 @@
  * cost is said in records and in Remastered's milliseconds (compiler/remasteredCost.ts), with the units made in it
  * (Create Unit actions: the fog's brushes and the rest); the summary counts from --from on. --changes reads that part
  * of the fog every frame and says how often the picture changed — the frames between changes, and how much of it
- * changed each time (a picture's cadence and its steps). Needs a scm-sim checkout
+ * changed each time (a picture's cadence and its steps). --orders sends the player's Marines, at each frame named, to
+ * a point of the map in pixels, as a right-click does (GameSim.order, the Order action). Needs a scm-sim checkout
  * (SCM_SIM_DIR) and a scm-js one beside this repository (its PNG encoder, for the pictures).
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -39,6 +41,7 @@ const showUnits = args.includes("--units"), countFrom = Number(flag("from") ?? 1
 const changes = flag("changes")?.split(",").map(Number);
 /** Pictures only from this frame on (--shots-from): a run of consecutive frames at its end. */
 const shotsFrom = Number(flag("shots-from") ?? 0);
+const orders = (flag("orders") ?? "").split(";").filter(Boolean).map((o) => { const [f, at] = o.split(":"); const [x, y] = at.split(",").map(Number); return { frame: Number(f), x, y }; });
 const sim = resolve(process.env.SCM_SIM_DIR ?? join(root, "..", "scm-sim"));
 const from = (p: string) => import(pathToFileURL(join(sim, p)).href);
 const { encodePng } = await import(pathToFileURL(join(root, "..", "scm-js", "cli", "src", "png.ts")).href) as { encodePng(rgba: Uint8Array, width: number, height: number): Uint8Array };
@@ -79,7 +82,9 @@ try {
     for (const k of keys) if (f >= k.from && f < k.to) world.press(k.key);
     // (The mouse on the screen, written where the game keeps it: the map's place follows the screen, as a still hand's.)
     for (const m of mice) if (f >= m.from && f < m.to) { handle.m.setInt32(MOUSE, 320 + m.x, true); handle.m.setInt32(MOUSE + 4, 200 + m.y, true); }
+    for (const o of orders) if (o.frame === f) for (const u of world.units({ owner: player, type: 0 })) { world.order(u, "move", { x: o.x, y: o.y }); if (process.env.DEBUG_ORDERS) console.log(`order at ${f}: ${u.x},${u.y} → ${o.x},${o.y}, now ${u.orderId}`); }
     world.frames(1);
+    if (process.env.DEBUG_ORDERS && f % 10 === 0) console.log(`frame ${f}: ${world.units({ owner: player, type: 0 }).map((u) => `${u.x},${u.y} order ${u.orderId}`).join(" ")}`);
     const r = cost.report();
     const at = r.conditions.length - 1;
     const spent = at >= 0 ? r.conditions[at] + r.actions[at] : 0;

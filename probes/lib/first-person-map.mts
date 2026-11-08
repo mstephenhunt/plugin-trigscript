@@ -30,7 +30,7 @@ const { paintIsomDiamonds, isomWidth, isomHeight } = await import(join(E, "src/e
 const [out, gridOut] = process.argv.slice(2);
 if (!out) { console.error("usage: first-person-map.mts <out.scx> [<grid.ts>]"); process.exit(2); }
 const SOUND = Boolean(process.env.SOUND);
-const ROOMS = process.env.ARENA === "rooms";
+const ROOMS = process.env.ARENA === "rooms", REVEAL = Boolean(process.env.REVEAL);
 const ERA = ROOMS ? 6 : 0, BOARD = ROOMS ? 66 : 23778, W = 128, H = 128;
 /** The floor, the walls, and the floor's middle (none: the floor as it is). Badlands: Dirt, High Dirt; Ice: Snow, High Snow, Dirt. */
 const DIRT = ROOMS ? 2 : 2, HIGH_DIRT = ROOMS ? 3 : 3, FLOOR_MIDDLE = ROOMS ? Number(process.env.MIDDLE ?? 8) : 0;
@@ -194,6 +194,16 @@ scn.playerRaces = scn.playerRaces.map((r: number, i: number) => (i === 0 ? 1 : i
 const start = (owner: number, tx: number, ty: number, serial: number) => ({ classInstance: serial, x: tx * 32 + 16, y: ty * 32 + 16, unitId: 214, relationFlags: 0, validStates: 0, validProperties: 0, owner, hitPointsPercent: 100, shieldPercent: 100, energyPercent: 100, resourceAmount: 0, hangarUnits: 0, stateFlags: 0, unused: 0, relatedSerial: 0 });
 if (SOUND) scn.units.push(start(0, 60, 100, 1), start(1, 120, 120, 2));
 else scn.units.push(start(0, AX + START.x * CELL + 1, AY + START.y * CELL + 1, 1), start(1, 4, H - 4, 2));
+// REVEAL=1 (probe 3): Map Revealers of Player 1's over the arena, placed with the map, so that it is seen whole without
+// the fog's brushes made over it every frame — which, played in the lifted game, stop a unit walking under them (a
+// Marine sent on a slant stood still with its Move order on). Each sees 10 tiles round; none higher than 10 rows under
+// the view, whose fog is the picture.
+if (REVEAL) {
+  let serial = 10;
+  for (let ty = VIEW_ROWS + 11; ty < H; ty += 14) for (let tx = 6; tx < W; tx += 14) {
+    scn.units.push({ ...start(0, Math.min(tx, W - 2), Math.min(ty, H - 2), serial++), unitId: 101 });
+  }
+}
 markDirty(scn, "OWNR", "IOWN", "SIDE", "UNIT", "MTXM", "TILE", "ISOM");
 writeFileSync(out, await saveMap(serializeScenario(scn), { extras: new Map(), compress: "pkware", listfile: true }));
 const holes = [...scn.tiles].filter((t: number) => t === 0).length;

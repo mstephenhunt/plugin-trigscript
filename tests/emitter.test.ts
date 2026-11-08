@@ -1479,6 +1479,7 @@ describe("a map of our own, units", () => {
       put(at + 0x8f, u.kills ?? 0, 1);
       put(at + 0xa2, (u.energy ?? 0) * 256, 2);
       put(at + 0x38, u.speed ?? 0);
+      put(at + 0x21, u.facing ?? 0, 1);
       put(at + 0x5c, u.hasTarget ? 0x700000 + 4 : 0);
       put(at + 0x8e, u.rank ?? 0, 1);
       if (u.underAttack) put(at + 0x87, 12, 1);
@@ -1583,10 +1584,10 @@ describe("a map of our own, units", () => {
     ].join("\n"), UNITS, HOME);
   });
 
-  it("reads and writes the fields Magenta's rows need: build time, rank, matrix, speed and the flags", () => {
+  it("reads and writes the fields Magenta's rows need: build time, rank, matrix, speed, facing and the flags", () => {
     const units: SimUnitInit[] = [
       { type: 106, owner: 0, x: 400, y: 300, buildTime: 900, rank: 2, speed: 0 },
-      { type: 0, owner: 0, x: 420, y: 340, speed: 1024, hasTarget: true, speedUpgrade: true, matrix: 100 },
+      { type: 0, owner: 0, x: 420, y: 340, speed: 1024, hasTarget: true, speedUpgrade: true, matrix: 100, facing: 96 },
       { type: 0, owner: 0, x: 430, y: 330, inTransport: true, hallucinated: true, underAttack: true },
     ];
     same([
@@ -1595,7 +1596,7 @@ describe("a map of our own, units", () => {
       "  const t = first({ type: units.TerranMarine, owner: P1 })!;",
       "  let second: Unit | null = null;",
       "  for (const u of unitsOf(P1, { type: units.TerranMarine })) second = u;",
-      "  print(`${cc.buildTime} ${cc.rank} ${cc.speed} ${m.speed} ${m.hasTarget} ${m.speedUpgrade} ${m.matrix} ${m.inTransport} ${m.hallucinated}`);",
+      "  print(`${cc.buildTime} ${cc.rank} ${cc.speed} ${m.speed} ${m.hasTarget} ${m.speedUpgrade} ${m.matrix} ${m.inTransport} ${m.hallucinated} ${m.facing} ${cc.facing}`);",
       "  if (second) print(`${second.inTransport} ${second.hallucinated} ${second.hasTarget} ${second.speedUpgrade} ${second.underAttack} ${m.underAttack}`);",
       "  cc.buildTime = 60; cc.rank = 7; m.matrix = 40; m.speedUpgrade = false; m.hallucinated = true; cc.rank += 1;",
       "  print(`${cc.buildTime} ${cc.rank} ${m.matrix} ${m.speedUpgrade} ${m.hallucinated}`);",

@@ -1,0 +1,43 @@
+TrigScript: first person, probe 3 - answers
+Map: trigscript-first-person-3.scx (the lobby says "TrigScript first person 3")
+Single player. Please RECORD THE SCREEN. About 2-3 minutes.
+Start in REMASTERED graphics; press F5 about halfway to compare Classic.
+
+What it is: play StarCraft as usual. Your Marine starts selected: right-click on the MAIN screen to move it, A and a
+click to attack-move. Scroll the main screen as you like. The 3D view at the top of the minimap is what the Marine
+sees: where it stands and the way it faces, read from the game every frame. When it shoots, it faces its target, and so
+does the view. The view turns smoothly toward the Marine's facing (at most 4 degrees a frame) and follows its place
+a little behind.
+Keys: B puts the eye half a cell behind the Marine (over its shoulder, the Marine drawn in the view) and back;
+V changes how the monsters look. Nothing else is the script's.
+Note: a right-click on the TOP of the minimap (the 3D view) sends the Marine up there, to a place it cannot reach.
+Click the main screen, or the arena at the bottom of the minimap.
+Same arena and monsters as probe 2, so the two can be compared.
+Pictures from the game played without anyone (right-clicks given by the test tool): first-person-3-play.png (a walk
+through the rooms), first-person-3-behind.png (the same walk, over the shoulder), first-person-3-steps.png (16 frames
+in a row during a turn).
+
+1. The view following the Marine
+  Does the view turn with the Marine when you send it somewhere? Smooth, or do you see the game's turning steps? ->
+  Is it too slow to catch up (the cap is about 95 degrees a second)? ->
+  When the Marine walks, does the view move evenly? ->
+  When the Marine stops and shoots, does the view turn to what it shoots? ->
+
+2. First person or over the shoulder (B)
+  Which reads better? ->
+  Over the shoulder: does the Marine in the view read as the Marine? Does it hide too much? ->
+
+3. Playing
+  Does moving the Marine with right-clicks feel better than WASD (probe 2)? ->
+  Does the Marine walk where you send it (no getting stuck)? ->
+  Do the monsters come round and stay in front, 2-3 cells off? ->
+  Do you end up looking at the monsters when you fight, or mostly at walls? ->
+
+4. The look
+  The arena is now lit by Map Revealers (no longer by the fog brushes): does the bottom of the minimap still show
+  the whole arena? ->
+  Remastered vs Classic (F5): which looks better? ->
+
+5. Any slowdown, stutter, missing pieces or messages? ->
+
+Anything else ->

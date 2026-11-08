@@ -202,6 +202,7 @@ class GameUnit implements SimUnit {
   get rank() { return this.read("rank", () => this.game.u8[this.at + 0x8e]); }
   get matrix() { return this.read("matrix", () => this.game.u8[this.at + 0x114]); }
   get speed() { return this.read("speed", () => this.m.getInt32(this.at + 0x38, true)); }
+  get facing() { return this.read("facing", () => this.game.u8[this.at + 0x21]); }
   get speedUpgrade() { return this.read("speedUpgrade", () => this.flag(0x10000000)); }
   get hasTarget() { return this.read("hasTarget", () => this.m.getUint32(this.at + 0x5c, true) !== 0); }
   get inTransport() { return this.read("inTransport", () => this.flag(0x00000040)); }
@@ -350,6 +351,16 @@ export class GameSim implements TestWorldLike {
   morph(): this { throw new ExpectError("morph: the lifted game turns a unit into another type only through a player's command, which a test cannot give yet; test on.morphed() in the simulator."); }
   give(unit: SimUnit, to: number): this {
     return this.onOne(unit, (loc) => this.act(this.record(ActionType.GiveUnits, { location: loc, player: unit.owner, number: to, unit: unit.type, count: 1 }), unit.owner));
+  }
+  /**
+   * A unit told to move, patrol or attack-move to a location's centre or a point, as a player's right-click or the
+   * Order action does: the game walks it there with its own pathing, turning it as it goes.
+   */
+  order(unit: SimUnit, order: "move" | "patrol" | "attack", to: number | { x: number; y: number }): this {
+    const b = typeof to === "number" ? this.location(to) : { left: to.x, top: to.y, right: to.x, bottom: to.y };
+    if (!b) throw new ExpectError(`order: there is no location ${String(to)}`);
+    const modifier = order === "move" ? 0 : order === "patrol" ? 1 : 2;
+    return this.scratch(SCRATCH_TO, b, (dest) => this.onOne(unit, (loc) => this.act(this.record(ActionType.Order, { location: loc, player: unit.owner, number: dest, unit: unit.type, count: modifier }), unit.owner)));
   }
   move(unit: SimUnit, to: number | { x: number; y: number }): this {
     // (The destination through a second scratch location, so that a location still scrambled at frame 0 is not used.)
