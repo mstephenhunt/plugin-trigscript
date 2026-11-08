@@ -38781,6 +38781,23 @@ function missingLibrary(message, libraries) {
 The library "${id}" has no such module: it has ${Object.keys(libraries[id]).map((p) => `"${id}/${p.replace(/\.tsx?$/, "")}"`).join(", ")}.` : `${message}
 A name without ./ in front imports a library another plugin provides ("${id}/\u2026"): no plugin provides "${id}" here, and the map keeps no copy of it.`;
 }
+function scriptCompilerOptions(ts, libraries = {}) {
+  return {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.CommonJS,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    strict: true,
+    types: [],
+    sourceMap: true,
+    noLib: false,
+    paths: { [`${MODULE_NAME}/*`]: [`./${STDLIB_DIR}/*`], ...Object.fromEntries(Object.keys(libraries).flatMap((id) => [[`${id}/*`, [`./${LIBRARY_DIR}/${id}/*`]], [id, [`./${LIBRARY_DIR}/${id}/index`]]])) },
+    // JSX (in a .tsx file) is a text the game shows: elements are calls of __jsx, which the structured compiler lowers in a program.
+    jsx: ts.JsxEmit.React,
+    jsxFactory: "__jsx",
+    jsxFragmentFactory: "__fragment"
+  };
+}
+var usableLibraries = (libraries = {}) => Object.fromEntries(Object.entries(libraries).filter(([id]) => id !== MODULE_NAME && LIBRARY_ID.test(id)));
 function normalizePath(path) {
   return path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/\/+/g, "/");
 }
@@ -38800,7 +38817,7 @@ function compileScript(ts, files, names, options) {
   const scripts = /* @__PURE__ */ new Map();
   const media = /* @__PURE__ */ new Map();
   for (const [path, text] of Object.entries(files)) (isMediaFile(path) ? media : scripts).set(normalizePath(path), text);
-  const libraries = Object.fromEntries(Object.entries(options.libraries ?? {}).filter(([id]) => id !== MODULE_NAME && LIBRARY_ID.test(id)));
+  const libraries = usableLibraries(options.libraries);
   for (const [path, text] of Object.entries(libraryImports([...scripts.values()], libraries).files)) scripts.set(path, text);
   for (const name of stdlibImports([...scripts.values()])) scripts.set(stdlibPath(name), STDLIB[name]);
   const entry = entryOf(scripts.keys());
@@ -38810,20 +38827,7 @@ function compileScript(ts, files, names, options) {
   }
   const fileNames = [...scripts.keys()];
   const texts = new Map([...scripts, [DECLARATIONS_FILE, generateDeclarations(names)], [LIB_FILE, options.lib]]);
-  const compilerOptions = {
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.CommonJS,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    strict: true,
-    types: [],
-    sourceMap: true,
-    noLib: false,
-    paths: { [`${MODULE_NAME}/*`]: [`./${STDLIB_DIR}/*`], ...Object.fromEntries(Object.keys(libraries).flatMap((id) => [[`${id}/*`, [`./${LIBRARY_DIR}/${id}/*`]], [id, [`./${LIBRARY_DIR}/${id}/index`]]])) },
-    // JSX (in a .tsx file) is a text the game shows: elements are calls of __jsx, which the structured compiler lowers in a program.
-    jsx: ts.JsxEmit.React,
-    jsxFactory: "__jsx",
-    jsxFragmentFactory: "__fragment"
-  };
+  const compilerOptions = scriptCompilerOptions(ts, libraries);
   const outputs = /* @__PURE__ */ new Map();
   const host = {
     getSourceFile: (name) => {

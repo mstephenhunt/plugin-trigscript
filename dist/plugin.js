@@ -7927,6 +7927,9 @@ function describeVariable(v, t = english) {
   if (v.fixed) return t("a fixed number (\u221232 768 \u2026 32 767.99998, in steps of 1/65 536): a number with a fraction");
   return t("a number (\u22122 147 483 648 \u2026 2 147 483 647, whole, wrapping at either end as `x | 0` does)");
 }
+function variableNote(v, tr2 = english) {
+  return v.shared ? tr2("**{name}** is a variable of the program: {what}, one value shared by every player the program runs for. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr2) }) : tr2("**{name}** is a variable of the program: {what}. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr2) });
+}
 function normalizePath(path) {
   return path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/\/+/g, "/");
 }
@@ -8160,7 +8163,7 @@ function setHoverVariables(monaco, variables) {
         if (!v) continue;
         return {
           range: new monaco.Range(position.lineNumber, word2.startColumn, position.lineNumber, word2.endColumn),
-          contents: [{ value: v.shared ? tr("**{name}** is a variable of the program: {what}, one value shared by every player the program runs for. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) }) : tr("**{name}** is a variable of the program: {what}. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) }) }]
+          contents: [{ value: variableNote(v, tr) }]
         };
       }
       return null;
@@ -8475,7 +8478,7 @@ function createScriptEditor(monaco, host, files, active, onChange, onMark, onBre
 }
 
 // version.ts
-var VERSION5 = "4.1.1";
+var VERSION5 = "4.2.0";
 
 // compile.ts
 var TS_URL = "https://cdn.jsdelivr.net/npm/typescript@6.0.3/lib/typescript.js";
