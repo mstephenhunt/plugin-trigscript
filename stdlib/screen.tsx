@@ -91,24 +91,30 @@ export class Screen {
   y: number;
   width: number;
   height: number;
+  /** A pixel's size on the map, in pixels: across (`cell`) and down (`cellHeight`). */
   cell: number;
+  cellHeight: number;
   /** The unit a pixel is: an Overlord ("dots"), or a Pylon ("solid"). */
   unit = 0;
 
   /**
    * A screen `width` × `height` pixels (MAX_PIXELS at most), its top left corner on tile (x, y) of the map, a pixel two
-   * tiles across.
+   * tiles square unless `across` and `down` say otherwise.
    * @param look "dots" (the default): a pixel is an Overlord, which the minimap draws as a dot, a gap round it — it flies,
    *   so the screen may be over anything, Space too. "solid": a pixel is a Pylon, which the minimap draws as its whole
    *   footprint, two tiles square, so pixels side by side are one block — it needs buildable ground under the screen,
    *   and gives its owner Protoss supply. (Overlords a tile apart do not fit: the game will not place most of them.)
+   * @param across A pixel's width in tiles, 2 unless it says: 3 lines a screen's dots up with the columns of a view of
+   *   fog.columns(), which are a brush (3 tiles) wide.
+   * @param down A pixel's height in tiles, as wide as it is unless it says (0). Overlords fit 2 tiles apart, not 1.
    */
-  constructor(x: number, y: number, width: number, height: number, look: "dots" | "solid" = "dots") {
+  constructor(x: number, y: number, width: number, height: number, look: "dots" | "solid" = "dots", across: number = 2, down: number = 0) {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
-    this.cell = 64;
+    this.cell = across * 32;
+    this.cellHeight = (down > 0 ? down : across) * 32;
     this.unit = look === "solid" ? units.ProtossPylon : units.ZergOverlord;
   }
 
@@ -219,7 +225,7 @@ export class Screen {
   reveal(player: Player) {
     // A Map Revealer sees ten tiles round; one every six tiles leaves no gap.
     const right = this.x * 32 + this.width * this.cell;
-    const bottom = this.y * 32 + this.height * this.cell;
+    const bottom = this.y * 32 + this.height * this.cellHeight;
     let py = this.y * 32 + 96;
     while (py < bottom + 96) {
       let px = this.x * 32 + 96;
@@ -258,8 +264,7 @@ export class Screen {
     const now = this.pixels[i];
     const was = this.shown[i];
     if (now === was) return;
-    const half = this.cell >> 1;
-    centerLocation(SPOT, this.x * 32 + x * this.cell + half, this.y * 32 + y * this.cell + half, 32, 32);
+    centerLocation(SPOT, this.x * 32 + x * this.cell + (this.cell >> 1), this.y * 32 + y * this.cellHeight + (this.cellHeight >> 1), 32, 32);
     OWNERS.forEach((owner, k) => { if (was === k + 1) removeUnitAt(owner, this.unit, 1, SPOT); });
     OWNERS.forEach((owner, k) => { if (now === k + 1) createUnit(owner, this.unit, 1, SPOT); });
     this.shown[i] = now;

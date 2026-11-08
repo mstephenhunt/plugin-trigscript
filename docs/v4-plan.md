@@ -6503,6 +6503,45 @@ column lit whole where one face meets another — now the default of `fog.column
 **Not yet:** Textures, sprites
 (a monster drawn as a scaled picture in front of the walls), a floor with distance, more than one level.
 
+### S6. First person: the probes (2026-11-08, branch `first-person-probes`)
+
+The third showcase, decided with the user: StarCraft in first person. The minimap is the screen — its top the S5 view
+in the fog, its bottom a real arena of the game's own cliffs, seen from above on the minimap and the main screen alike
+— and the player's Marine in the arena is the camera. Two probe maps ask whether it works in Remastered:
+
+- **`probes/first-person.ts`** ("TrigScript first person"): the arena is `probes/lib/first-person-map.mts`, rooms of
+  Dirt cut into High Dirt with the editor's isometric brush (`paintIsomDiamonds`), and the raycaster's grid (a cell 2
+  tiles) is read back from the built tiles — a cell is floor when most of its minitiles are where a unit fits and are
+  reached from the floor — and written as `probes/lib/first-person-arena.ts`, so the view and the ground agree. Thin
+  High Dirt (4 tiles between two low areas, a pillar a cell from a wall) leaves holes the brush cannot join and cliffs
+  that close the way; walls and gaps of 3 cells and more do not. **The Marine is driven, the camera reads it**: W A S D
+  give it Move orders to the last floor up to 4 cells along the way (a new order when the keys or the view change, or
+  every 8 frames — one every frame made it crawl), the game's pathing walks it, and the view is drawn from where it is;
+  the screen is centred on it every frame. The mouse turns the view two ways, T between them: "aim" (the view faces the
+  cursor seen from the Marine, at most 0.25 a frame) and "steer" (the cursor's distance left or right of the Marine past
+  40 pixels is the turn rate); Q and E turn too. The computer's Zerglings and Hydralisks (8, made again as they die)
+  are sent after the Marine with Order (attack) twice a second and fight with the game's own unit AI; each picture the
+  program walks P2's units, puts each into the camera's space and draws it with `fog.sprite`, behind walls nearer than
+  it. V switches three looks: lit silhouettes; green dots (your own Overlords, sight 0, a screen of 3 × 2-tile pixels
+  over the view); both, with red dots (P6's Overlords, which show only where the silhouette lit the fog).
+- **`probes/first-person-sound.ts`** ("TrigScript sound places"): a unit of yours dies at the middle, the edges, 24
+  and 48 tiles off the screen, and up and down it, each followed by the same sound through Play WAV (no place), for the
+  recording's two channels to say whether the game pans and fades a unit's sounds.
+
+**Library:** `fog.figure(rows)` (a silhouette's span a column, worked out when built) and `fog.sprite(player, x, y,
+layout, figure, left, width, top, height, near, depths)` — the figure in a box of a fog.columns() view, a column a bar,
+left out where `depths[c] >= near`; a figure taller than a third of the view is its outline (top and bottom a brush
+deep, whole at its edges), as the walls are, or a near crowd takes most of the game's units. `Screen` takes a pixel's
+size in tiles (`across`, `down`), so dots line up with the view's 3-tile columns. `scripts/fog-frames.mts` writes its
+pictures without sharp (scm-js's PNG encoder), says Remastered's milliseconds and the units made each frame, holds the
+mouse on the screen (`--mouse`) and draws units on the pictures (`--units`).
+
+**Measured in the lifted game** (fog-frames, look (c) unless said, counted from frame 40): standing and facing the
+monsters as they come, 1.69 ms a frame on average and 5.5 at the most, 122 units made a frame (brushes and dots), 431
+at the most; look (a) 1.14 / 2.63 ms, 116 / 371 units; a walk with "steer" turning, strafing into walls and 8 monsters
+round the Marine, 1.48 / 6.6 ms and 133 / 817 units. Within the smooth budget by far; the units at the most are near
+the ~950 the game makes in a frame, which is why the arena and the walls are drawn first. Not played yet.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

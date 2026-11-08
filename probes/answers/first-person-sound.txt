@@ -1,0 +1,21 @@
+TrigScript: first person, probe 2 (sounds) - answers
+Map: trigscript-first-person-sound.scx (the lobby says "TrigScript sound places")
+Single player. Remastered or Classic graphics, either. Turn the game's MUSIC OFF (Options > Sound), keep the sound effects on.
+Please RECORD THE SCREEN WITH SOUND (the recording's two channels are what gets measured). Leave the mouse in the middle
+of the screen and do not scroll. About 85 seconds; it goes round twice, then says "Done".
+
+What it does: the screen stays on the middle of the map. At each step a unit of yours appears at a place and dies a
+second later (the game plays its death sound there); 1.5 seconds later the same sound plays with no place at all (a
+trigger's Play WAV), to compare. The places: the middle, the left edge, the right edge, a screen and a half off to the
+left, the same to the right, three screens off to the right, up the screen, down the screen. A Marine first, then a
+Zergling. Each step is printed as it starts.
+
+1. Listening with headphones (the recording answers these too):
+  Does the death at the LEFT edge sound from the left, and at the RIGHT edge from the right? ->
+  Is the death FAR LEFT / FAR RIGHT (off the screen) heard at all? Fainter? From that side? ->
+  VERY FAR RIGHT: heard? ->
+  UP and DOWN the screen: any difference from the middle? ->
+  The trigger's Play WAV after each: always the same, from the middle? ->
+  Do the units' deaths and the Play WAV copies sound like the same sound? ->
+
+2. Anything missing or odd (a step with no sound, a unit not appearing, messages) ->

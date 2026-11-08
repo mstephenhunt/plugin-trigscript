@@ -118,6 +118,14 @@ describe("trigscript/screen", () => {
     const revealers = made(sim(r).run(1)).filter((e) => e.action.player === 0);
     expect(revealers).toHaveLength(8);
   });
+  it("a pixel of another size: across and down, in tiles, place each one's unit on its cell's centre", () => {
+    const r = compile(`
+      import { Screen } from "trigscript/screen";
+      program(async () => { const s = new Screen(1, 0, 4, 3, "dots", 3, 2); s.set(0, 0, 4); s.set(3, 2, 4); s.present(); });`);
+    const run = sim(r).run(1);
+    // Columns of 3 tiles from tile 1 and rows of 2: pixel (0, 0) centred on pixel (32 + 48, 32), (3, 2) on (32 + 3 × 96 + 48, 4 × 32 + 32).
+    expect(run.world.game.living().map((u) => [u.x, u.y])).toEqual([[80, 32], [368, 160]]);
+  });
   it("solid: a pixel is a Pylon, made and taken away as an Overlord is", () => {
     const r = compile(`
       import { Screen } from "trigscript/screen";

@@ -525,6 +525,115 @@ export const columns = game((player: Player, x: number, y: number, layout: Colum
 });
 
 /**
+ * A figure for fog.sprite(), worked out when the script is built: a silhouette's columns, each lit from the first `#`
+ * of its column to the last (a column a span: what a column of the view can show). `tops` and `bottoms` are where each
+ * column's span begins and ends, in 256ths of the figure's height; a column with no `#` has both 0.
+ */
+export interface Figure { readonly width: number; readonly tops: readonly number[]; readonly bottoms: readonly number[] }
+
+/**
+ * A figure from rows of text, worked out when the script is built: `#` is the figure, anything else is not. Drawn by
+ * fog.sprite() at any size, a column of the figure to as many columns of the view as its width takes.
+ *
+ *   const LING = fog.figure(["..##..", ".####.", "######", "#.##.#"]);
+ */
+export function figure(rows: readonly string[]): Figure {
+  const height = rows.length;
+  const width = Math.max(0, ...rows.map((r) => r.length));
+  const tops: number[] = [], bottoms: number[] = [];
+  for (let x = 0; x < width; x++) {
+    let first = -1, last = -1;
+    for (let y = 0; y < height; y++) if (rows[y][x] === "#") { if (first < 0) first = y; last = y; }
+    tops.push(first < 0 ? 0 : Math.floor((first * 256) / height));
+    bottoms.push(first < 0 ? 0 : Math.ceil(((last + 1) * 256) / height));
+  }
+  return Object.freeze({ width, tops: Object.freeze(tops), bottoms: Object.freeze(bottoms) });
+}
+
+/** A bar of the smallest brushes, in pixels: from the row whose top is `top32` (32 a row) down, `k32` deep (at least a brush). */
+const barPx = game((player: Player, px: number, top32: number, k32: number) => {
+  let py = top32 + 80;
+  const end = py + Math.max(k32, 128) - 128;
+  while (true) {
+    centerLocation(SPOT, px, py, 32, 32);
+    createUnit(player, BRUSHES[0], 1, SPOT);
+    removeUnit(player, BRUSHES[0]);
+    if (py >= end) break;
+    py = Math.min(py + 128, end);
+  }
+});
+
+/**
+ * A figure standing in a view of fog.columns() — a monster in front of a raycaster's walls — lit for this frame: its
+ * box is `width` columns from column `left` and `height` rows from row `top` (both counted from the layout's corner,
+ * and either may reach past the view's edges, which cut it), and it is drawn only in the columns where it is nearer
+ * than what is there already: where `near` is more than that column's `depths`. A raycaster gives both in one measure,
+ * the rows a wall at that distance stands (the view's height over the distance) — the figure's own and each column's
+ * wall's, before they are cut to the view. Each column of the view is a bar from the figure's top to its bottom in
+ * the figure's column under it: about one brush every 4 rows. A figure taller than a third of the view is drawn as its
+ * outline, as the walls are (a brush deep along its top and bottom, whole at its edges): two brushes a column.
+ *
+ *   fog.sprite(P1, 1, 0, VIEW, LING, left, wide, top, tall, near, depths);
+ *
+ * @param player Whose fog: P1 … P8, known when the script is built.
+ * @param x The column (tile) of the layout's left edge, as fog.columns() was given it.
+ * @param y The row (tile) of its top edge.
+ * @param layout The view's layout: known when the script is built.
+ * @param figure The silhouette (fog.figure()).
+ * @param left The box's first column of the view.
+ * @param width How many columns across (1 at the least, or nothing is drawn).
+ * @param top The box's first row of the view.
+ * @param height How many rows down.
+ * @param near How near the figure is, in the measure of `depths`: more is nearer.
+ * @param depths How near the wall in each column of the view is, in the same measure: an array as long as the layout's
+ *   count, the program's.
+ */
+export const sprite = game((player: Player, x: number, y: number, layout: ColumnLayout, figure: Figure, left: number, width: number, top: number, height: number, near: number, depths: readonly number[]) => {
+  if (width < 1 || height < 1) return;
+  const count = layout.count, rows = layout.height, wide = layout.width ?? 3, columns = figure.width;
+  const { tops, bottoms } = figure;
+  let c = Math.max(left, 0);
+  const last = Math.min(left + width, count);
+  // Which column of the figure is under column c: (c − left) × columns / width, stepped: `acc` is its remainder.
+  let k = 0, acc = (c - left) * columns;
+  while (acc >= width) { acc -= width; k++; }
+  let px = (x + c * wide + 1) * 32 + 16;
+  // A figure taller than a third of the view is drawn as its outline, as the walls are: a brush deep along each
+  // column's top and bottom, and whole where its edge is — the first and last column shown, and where the figure's
+  // span changes from one column to the next. Solid, a near one would take most of the game's units a frame.
+  const solid = height <= Math.floor(rows / 3);
+  let pk = 0, shownBefore = false;
+  while (c < last) {
+    // The figure's column under the next column of the view.
+    let nk = k, nacc = acc + columns;
+    while (nacc >= width) { nacc -= width; nk++; }
+    const shown = near > depths[c] && bottoms[k] > 0;
+    if (shown) {
+      const from = Math.max(top + ((height * tops[k]) >> 8), 0);
+      const to = Math.min(top + ((height * bottoms[k] + 255) >> 8), rows);
+      if (to > from) {
+        if (solid || to - from < 9) barPx(player, px, (y + from) * 32, (to - from) * 32);
+        else {
+          const shownNext = c + 1 < last && near > depths[c + 1] && bottoms[nk] > 0;
+          const edge = !shownBefore || !shownNext || tops[pk] != tops[k] || bottoms[pk] != bottoms[k] || tops[nk] != tops[k] || bottoms[nk] != bottoms[k];
+          if (edge) barPx(player, px, (y + from) * 32, (to - from) * 32);
+          else {
+            barPx(player, px, (y + from) * 32, 128);
+            barPx(player, px, (y + to - 4) * 32, 128);
+          }
+        }
+      }
+    }
+    shownBefore = shown;
+    pk = k;
+    k = nk;
+    acc = nacc;
+    px += wide * 32;
+    c++;
+  }
+});
+
+/**
  * Keep what was lit this frame on the board for `n` frames, and wait them out: \`await fog.show(2)\` in place of
  * \`await nextFrame()\` draws every other frame at half the cost. StarCraft: Remastered redraws the fog on the minimap
  * every other frame (measured in two played recordings, 2026-10-17), so a picture drawn every other frame looks the
@@ -538,7 +647,7 @@ export const show = game(async (n: number) => {
 });
 
 /** Everything above as one name: import { fog } from "trigscript/fog"; fog.light(P1, x, y, 3). */
-export const fog = { light, rect, columns, show, play, reveal, picture, SHAPES };
+export const fog = { light, rect, columns, sprite, figure, show, play, reveal, picture, SHAPES };
 
 /** The longest fog.show() keeps a picture: the countdown the game sets itself after a wipe is longer than this. */
 const SHOW_MOST = 24;

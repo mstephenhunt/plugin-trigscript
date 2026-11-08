@@ -1,0 +1,47 @@
+TrigScript: first person, probe 1 - answers
+Map: trigscript-first-person.scx (the lobby says "TrigScript first person")
+Single player. Classic graphics (Options > Graphics) for a sharp minimap; press F5 once near the end to see it in Remastered's too.
+Please RECORD THE SCREEN (the minimap is the picture). About 3 minutes.
+
+What it is: the MINIMAP is the screen. Its top is a 3D view drawn in the fog of war; its bottom is a real arena
+(cliffs of the game's own terrain) with your Marine in it. The main screen follows the Marine.
+W A S D walk (W toward where the view looks, A D sideways), the mouse turns the view, Q E turn too.
+V changes how the monsters look in the view, T changes how the mouse turns.
+Zerglings and Hydralisks of a computer chase you (8 at a time, more come). Your Marine cannot die; it shoots when you stand still.
+Do not click the Marine: with it selected, A and S are the game's Attack and Stop. If you did, press Esc.
+Pictures of what the view should look like, from the game played without anyone: first-person-look-a.png, -b.png, -c.png, first-person-budget.png
+(frames left to right, top to bottom; white lit, grey fog; coloured squares are units, which the game shows only where they are lit).
+
+1. Starting
+  Does the arena show at the bottom of the minimap, lit, with the Marine and the monsters as dots? ->
+  Does the 3D view show walls at the top of the minimap? ->
+  Does the main screen stay on the Marine? Any shaking? ->
+
+2. Walking and the view (the mouse turning is "aim" at the start: the view faces the cursor, seen from the Marine)
+  Walk with W toward a wall: does the wall in the view grow, and does the Marine stop at the cliff? ->
+  Does the view match the arena (rooms, the two blocks, the pillars) as you walk round it? ->
+  A D (sideways) and S (back): do they go the right way? ->
+
+3. Turning with the mouse: try both, then say which you would keep
+  "aim" (at the start): move the cursor round the Marine; the view turns to face it. Smooth? Too fast or slow? ->
+  Press T for "steer": the further left or right of the Marine the cursor is, the faster the view turns (nothing near the Marine). Smooth? ->
+  Which turning is better to play, and which looks better on video? ->
+  Do Q and E feel useful too? ->
+
+4. The monsters in the view - press V to go through the three looks (it starts on (c)):
+  (a) lit silhouettes in the fog: do you see the Zerglings and Hydralisks coming? Can you tell them apart? ->
+  (b) green dots (your own Overlords, one a dot) over the view: readable? ->
+  (c) both: silhouettes with red dots on them: readable? ->
+  Which look is best? ->
+  Are monsters hidden when they are behind a wall (and shown again when they come round it)? ->
+  When they reach you, they are drawn as big shapes at the bottom of the view. Good, or too much? ->
+  At about 12 pictures a second, do they move smoothly enough? ->
+
+5. The budget
+  Does the game ever slow down or stutter (with 8 monsters near you, while turning)? ->
+  Any monster, wall or part of the arena missing for a moment (the game makes only so many units a frame)? ->
+  Any "WARNING: Unit unplaceable" lines, or other messages? ->
+
+6. F5 near the end (Remastered graphics): which looks better, Classic or Remastered? ->
+
+Anything else (errors, the game ending, what would make it "oh wow" on video) ->

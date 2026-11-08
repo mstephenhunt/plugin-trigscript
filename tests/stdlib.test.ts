@@ -250,6 +250,33 @@ program(async () => { const hs: number[] = new Array(24).fill(0); let i = 0; whi
     });
   }
 
+  it("fog.sprite: a figure's columns lit from its top to its bottom, scaled to its box, and not where a wall is nearer", () => {
+    // A figure 4 columns × 8 rows drawn into 8 columns × 16 rows (each of its columns two of the view's), its top on row
+    // 20; column 5's wall is nearer (depth 60 against the figure's 50), so that column is left out.
+    const rows = fogAfter(`import { fog } from "trigscript/fog";
+const VIEW = { count: 12, height: 96 } as const;
+const FIG = fog.figure(["#..#", "#..#", "####", "####", "####", "####", ".##.", ".##."]);
+program(async () => { const depths: number[] = [0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0]; let left = 2; while (true) { fog.sprite(P1, 1, 0, VIEW, FIG, left, 8, 20, 16, 50, depths); await nextFrame(); } });`, 3);
+    const column = (c: number) => rows.map((r) => r[2 + 3 * c]).join("");
+    const span = (from: number, to: number) => ".".repeat(from) + "#".repeat(to - from) + ".".repeat(96 - to);
+    for (const c of [0, 1, 10, 11]) expect(column(c), `column ${c}`).toBe(span(0, 0));
+    // The figure's outer columns are its rows 0 to 5 (of 8), the middle ones 2 to 7: in 16 rows from row 20.
+    for (const c of [2, 3, 8, 9]) expect(column(c), `column ${c}`).toBe(span(20, 32));
+    for (const c of [4, 6, 7]) expect(column(c), `column ${c}`).toBe(span(24, 36));
+    expect(column(5)).toBe(span(0, 0));
+  });
+
+  it("fog.sprite: a figure taller than a third of the view is its outline, whole at its edges", () => {
+    const rows = fogAfter(`import { fog } from "trigscript/fog";
+const VIEW = { count: 6, height: 90 } as const;
+const FIG = fog.figure(["####"]);
+program(async () => { const depths: number[] = [0, 0, 0, 0, 0, 0]; let left = 1; while (true) { fog.sprite(P1, 1, 0, VIEW, FIG, left, 4, 10, 40, 50, depths); await nextFrame(); } });`, 3, 128, 90);
+    const column = (c: number) => rows.map((r) => r[2 + 3 * c]).join("");
+    const whole = ".".repeat(10) + "#".repeat(40) + ".".repeat(40);
+    const hollow = ".".repeat(10) + "#".repeat(4) + ".".repeat(32) + "#".repeat(4) + ".".repeat(40);
+    expect([0, 1, 2, 3, 4, 5].map(column)).toEqual([".".repeat(90), whole, hollow, hollow, whole, ".".repeat(90)]);
+  });
+
   it("fog.columns, outline (the default): every column its top and bottom edges, and whole where one face meets another, on the nearer", () => {
     const rows = fogAfter(`import { fog } from "trigscript/fog";
 const VIEW = { count: 4, height: 96 } as const;
