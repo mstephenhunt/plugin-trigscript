@@ -49,7 +49,8 @@ export const ENTRY_FILE = "main.ts";
 export const ENTRY_TSX = "main.tsx";
 /** The entry of a script's files: main.tsx when there is one, else main.ts. */
 export const entryOf = (files: Iterable<string>): string => ([...files].includes(ENTRY_TSX) ? ENTRY_TSX : ENTRY_FILE);
-const LIB_FILE = "lib.d.ts";
+/** Where the standard library's declarations (`CompileOptions.lib`) sit among a script's files. */
+export const LIB_FILE = "lib.d.ts";
 
 /** The script's files by path (`main.ts`, `bases.ts`, `ai/waves.ts`). */
 export type ScriptFiles = Record<string, string>;
@@ -108,6 +109,16 @@ export function describeVariable(v: Pick<VariableInfo, "kind" | "bits" | "unsign
   if (v.unsigned) return t("a u32 number (0 … 4 294 967 295, wrapping at either end as `x >>> 0` does)");
   if (v.fixed) return t("a fixed number (−32 768 … 32 767.99998, in steps of 1/65 536): a number with a fraction");
   return t("a number (−2 147 483 648 … 2 147 483 647, whole, wrapping at either end as `x | 0` does)");
+}
+
+/**
+ * What a hover says of a program's variable, under TypeScript's own `let n: number`: Monaco's hover (`monaco.ts`) and
+ * the language service's (`language.ts`) both say this.
+ */
+export function variableNote(v: Pick<VariableInfo, "name" | "kind" | "bits" | "unsigned" | "fixed" | "shared">, tr: Translate = english): string {
+  return v.shared
+    ? tr("**{name}** is a variable of the program: {what}, one value shared by every player the program runs for. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) })
+    : tr("**{name}** is a variable of the program: {what}. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) });
 }
 
 /** Something the compiler has to say about a line that is not a fault: a loop unrolled when the script was built. */
@@ -243,6 +254,25 @@ function missingLibrary(message: string, libraries: ScriptLibraries): string {
     : `${message}\nA name without ./ in front imports a library another plugin provides ("${id}/…"): no plugin provides "${id}" here, and the map keeps no copy of it.`;
 }
 
+/**
+ * The options a script is checked with: what `compileScript` gives TypeScript, and what the language service
+ * (`language.ts`) gives it too, so a hover and an error agree. "trigscript/fog" is the standard library's module and
+ * "stamps/patrol" a library's (`libraries`, by id), among the files by the bundler's rules.
+ */
+export function scriptCompilerOptions(ts: typeof TS, libraries: ScriptLibraries = {}): TS.CompilerOptions {
+  return {
+    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, moduleResolution: ts.ModuleResolutionKind.Bundler,
+    strict: true, types: [], sourceMap: true, noLib: false,
+    paths: { [`${MODULE_NAME}/*`]: [`./${STDLIB_DIR}/*`], ...Object.fromEntries(Object.keys(libraries).flatMap((id) => [[`${id}/*`, [`./${LIBRARY_DIR}/${id}/*`]], [id, [`./${LIBRARY_DIR}/${id}/index`]]])) },
+    // JSX (in a .tsx file) is a text the game shows: elements are calls of __jsx, which the structured compiler lowers in a program.
+    jsx: ts.JsxEmit.React, jsxFactory: "__jsx", jsxFragmentFactory: "__fragment",
+  };
+}
+
+/** The other plugins' libraries a script may import: by a valid id, never the standard library's own name. */
+export const usableLibraries = (libraries: ScriptLibraries = {}): ScriptLibraries =>
+  Object.fromEntries(Object.entries(libraries).filter(([id]) => id !== MODULE_NAME && LIBRARY_ID.test(id)));
+
 export function normalizePath(path: string): string {
   return path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/\/+/g, "/");
 }
@@ -269,7 +299,7 @@ export function compileScript(ts: typeof TS, files: ScriptFiles, names: ScriptNa
   // The standard library's modules the script imports ("trigscript/fog"), as files of its own: only those, since one
   // may hold a program of its own.
   // Other plugins' libraries the script imports, the same way — before the standard library, which a library may import.
-  const libraries: ScriptLibraries = Object.fromEntries(Object.entries(options.libraries ?? {}).filter(([id]) => id !== MODULE_NAME && LIBRARY_ID.test(id)));
+  const libraries = usableLibraries(options.libraries);
   for (const [path, text] of Object.entries(libraryImports([...scripts.values()], libraries).files)) scripts.set(path, text);
   for (const name of stdlibImports([...scripts.values()])) scripts.set(stdlibPath(name), STDLIB[name]);
   const entry = entryOf(scripts.keys());
@@ -281,13 +311,7 @@ export function compileScript(ts: typeof TS, files: ScriptFiles, names: ScriptNa
   const texts = new Map<string, string>([...scripts, [DECLARATIONS_FILE, generateDeclarations(names)], [LIB_FILE, options.lib]]);
 
   /* ── Check ── */
-  const compilerOptions: TS.CompilerOptions = {
-    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, moduleResolution: ts.ModuleResolutionKind.Bundler,
-    strict: true, types: [], sourceMap: true, noLib: false,
-    paths: { [`${MODULE_NAME}/*`]: [`./${STDLIB_DIR}/*`], ...Object.fromEntries(Object.keys(libraries).flatMap((id) => [[`${id}/*`, [`./${LIBRARY_DIR}/${id}/*`]], [id, [`./${LIBRARY_DIR}/${id}/index`]]])) },
-    // JSX (in a .tsx file) is a text the game shows: elements are calls of __jsx, which the structured compiler lowers in a program.
-    jsx: ts.JsxEmit.React, jsxFactory: "__jsx", jsxFragmentFactory: "__fragment",
-  };
+  const compilerOptions = scriptCompilerOptions(ts, libraries);
   const outputs = new Map<string, string>();
   const host: TS.CompilerHost = {
     getSourceFile: (name) => {

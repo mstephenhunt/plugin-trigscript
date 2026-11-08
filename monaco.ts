@@ -21,7 +21,7 @@ import { MODULE_NAME } from "./compiler/api";
 import { STDLIB, STDLIB_EXT } from "./compiler/stdlib";
 import type { ScriptLibraries } from "./compiler/libraries";
 import type { LineHint, ScriptDiagnostic, ScriptFiles, SourceRange, VariableInfo } from "./compiler/compiler";
-import { describeVariable, normalizePath } from "./compiler/compiler";
+import { normalizePath, variableNote } from "./compiler/compiler";
 import { isMediaFile } from "./compiler/media";
 import { findReferences } from "./refs";
 import { english, type Translate } from "./i18n";
@@ -213,9 +213,7 @@ export function setHoverVariables(monaco: MonacoApi, variables: () => VariableIn
         if (!v) continue;
         return {
           range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
-          contents: [{ value: v.shared
-            ? tr("**{name}** is a variable of the program: {what}, one value shared by every player the program runs for. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) })
-            : tr("**{name}** is a variable of the program: {what}. It lives in the game while the map is played.", { name: v.name, what: describeVariable(v, tr) }) }],
+          contents: [{ value: variableNote(v, tr) }],
         };
       }
       return null;
