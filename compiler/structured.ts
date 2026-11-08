@@ -11770,9 +11770,10 @@ export class Structured {
       }
       case "drawAs": {
         const a = e.arguments[0];
-        if (!a || e.arguments.length > 1) { this.c.error(e, "drawAs() takes one player, P1 … P12, or a number 0 … 11."); return; }
+        if (!a || e.arguments.length > 2) { this.c.error(e, "drawAs() takes one player, P1 … P12, or a number 0 … 11, and the unit's sprite kept (u.sprite) if you have it."); return; }
         const amount = this.num(a);
-        if (amount) emit({ do: "drawAs", amount });
+        const sprite = e.arguments[1] ? this.num(e.arguments[1]) : undefined;
+        if (amount && sprite !== null) emit({ do: "drawAs", amount, ...(sprite ? { sprite } : {}) });
         return;
       }
       case "damage": case "heal": {

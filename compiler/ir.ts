@@ -221,10 +221,10 @@ export type EventSource = "created" | "died" | "killed" | "ordered" | "morphed";
  * remaining build time frames; `matrix` the defensive matrix's frames; `speed` the current speed in 256ths of a pixel a frame.
  */
 export type UnitNumField = "hp" | "maxHp" | "shields" | "maxShields" | "energy" | "owner" | "type" | "x" | "y" | "kills" | "orderId" | "cooldown" | "resources"
-  | "stim" | "ensnare" | "plague" | "lockdown" | "maelstrom" | "irradiate" | "stasis" | "buildTime" | "rank" | "matrix" | "speed" | "facing";
+  | "stim" | "ensnare" | "plague" | "lockdown" | "maelstrom" | "irradiate" | "stasis" | "buildTime" | "rank" | "matrix" | "speed" | "facing" | "sprite";
 /** The ones a program may write; the rest the game keeps for itself (a position write ends the game). */
 export const UNIT_WRITABLE: ReadonlySet<string> = new Set(["hp", "shields", "energy", "kills", "cooldown", "resources", "stim", "ensnare", "plague", "lockdown", "maelstrom", "irradiate", "stasis", "buildTime", "rank", "matrix", "invincible", "hallucinated", "speedUpgrade"]);
-export const UNIT_NUM_FIELDS: readonly UnitNumField[] = ["hp", "maxHp", "shields", "maxShields", "energy", "owner", "type", "x", "y", "kills", "orderId", "cooldown", "resources", "stim", "ensnare", "plague", "lockdown", "maelstrom", "irradiate", "stasis", "buildTime", "rank", "matrix", "speed", "facing"];
+export const UNIT_NUM_FIELDS: readonly UnitNumField[] = ["hp", "maxHp", "shields", "maxShields", "energy", "owner", "type", "x", "y", "kills", "orderId", "cooldown", "resources", "stim", "ensnare", "plague", "lockdown", "maelstrom", "irradiate", "stasis", "buildTime", "rank", "matrix", "speed", "facing", "sprite"];
 /** A true / false of a unit on the map; `invincible`, `hallucinated` and `speedUpgrade` take a write. */
 export type UnitFlag = "hallucinated" | "cloaked" | "burrowed" | "invincible" | "underAttack" | "speedUpgrade" | "hasTarget" | "inTransport";
 export const UNIT_FLAGS: readonly UnitFlag[] = ["hallucinated", "cloaked", "burrowed", "invincible", "underAttack", "speedUpgrade", "hasTarget", "inTransport"];
@@ -262,7 +262,7 @@ export type UnitVerb =
   /** Centre a location on the unit, its size kept. */
   | { do: "locate"; location: number }
   /** Draw the unit in another player's colour: its sprite's owner byte, nothing else (the main-screen spike). */
-  | { do: "drawAs"; amount: NumExpr };
+  | { do: "drawAs"; amount: NumExpr; sprite?: NumExpr };
 
 /**
  * One cell of the game's tables (`tables.ts`): `base + index × stride + key`, `width` bytes or one
@@ -817,7 +817,7 @@ export function declarations(body: Stmt[]): VarDecl[] {
       case "textLoop": text(s.of); out.push(s.decl); s.body.forEach(stmt); break;
       case "unitLoop": out.push(s.decl); if (s.was) out.push(s.was); s.body.forEach(stmt); break;
       case "unitWrite": unit(s.unit); init(s.value); break;
-      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); break;
+      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); if (s.verb.do === "drawAs" && s.verb.sprite) expr(s.verb.sprite); break;
       case "select": s.units.forEach(unit); break;
       case "tableWrite": init(s.value); break;
       case "if": init(s.cond); s.then.forEach(stmt); s.else?.forEach(stmt); break;

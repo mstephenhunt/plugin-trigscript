@@ -546,6 +546,7 @@ class ProgramRun {
     const u = yield* this.living(e);
     // The amount is computed whether or not there is a unit, as the game computes it.
     const amount = verb.do === "damage" || verb.do === "heal" || verb.do === "drawAs" ? yield* this.amount(verb.amount) : 0;
+    if (verb.do === "drawAs" && verb.sprite) yield* this.amount(verb.sprite);
     if (!u) return;
     switch (verb.do) {
       case "kill": case "remove": this.sim.game.gone(u, verb.do === "kill", undefined, false); this.sim.unitEvent(this, verb.do === "kill" ? ActionType.KillUnit : ActionType.RemoveUnit, u, at); break;

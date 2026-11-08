@@ -68,6 +68,8 @@ const FIELDS: Partial<Record<UnitNumField, Bits>> = {
   buildTime: word(0xac, 2), rank: word(0x8e, 1), matrix: word(0x114, 1), speed: word(0x38, 4),
   // The way the unit faces (+0x21, the flingy's current direction): its dword (+0x20) is read-allowed in Remastered.
   facing: word(0x21, 1),
+  // The unit's sprite (+0x0C), its address over 4: what u.drawAs(p, sprite) writes through without reading it again.
+  sprite: { dword: 0x0c >> 2, mask: 0xfffffffc, shift: 2 },
 };
 const HP = 0x08 >> 2, SHIELDS = 0x60 >> 2, ENERGY = word(0xa2, 2), STATUS = 0xdc >> 2, USER_ACTION = word(0x93, 1);
 /**
@@ -759,6 +761,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     const v = s.verb;
     // (The amount is worked out whether or not there is a unit.)
     const amount = v.do === "damage" || v.do === "heal" || v.do === "drawAs" ? plain(fix(v.amount, pre) as NumExpr, pre) : null;
+    const kept = v.do === "drawAs" && v.sprite ? plain(fix(v.sprite, pre) as NumExpr, pre) : null;
     if (isNone(u0)) return;
     const u = held(u0, pre);
     const e = u.e;
@@ -821,6 +824,11 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
         // The owner byte of the unit's sprite (sprite +0x0A, through the unit's sprite pointer at +0x0C): the player whose
         // colour the game draws the unit in, and nothing else — the unit's owner, vision and lists stay. Remastered's
         // emulator writes it into the game's own sprite for 0 … 11 and keeps 12 and up beside it (the main-screen spike).
+        // With the sprite kept (u.sprite, its address over 4, read once while the unit lives), the write alone.
+        if (kept) {
+          body.push(poke(bin("+", ranged(kept, 0, 0x3fffffff), k(2 - DEATHS / 4)), bin("*", atMost(amount!, 11), k(0x10000)), 0x00ff0000));
+          break;
+        }
         const sp = fresh("sp");
         body.push(
           dec(sp, k(0), 0x3fffffff), ...through(of(e, 0x0c >> 2), (h) => [set(sp, h(POINTER, 2))]),

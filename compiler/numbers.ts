@@ -472,6 +472,7 @@ export function typeNumbers(program: Program): ProgramDiagnostic[] {
       case "unitDo":
         unit(s.unit);
         if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") s.verb.amount = floor(s.verb.amount, s.at);
+        if (s.verb.do === "drawAs" && s.verb.sprite) s.verb.sprite = floor(s.verb.sprite, s.at);
         break;
       case "tableWrite":
         s.value = isTextExpr(s.value) ? text(s.value) : s.boolean ? bool(s.value as BoolExpr) : floor(s.value as NumExpr, s.at);

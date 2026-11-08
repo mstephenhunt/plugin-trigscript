@@ -165,6 +165,12 @@ ${kw}interface Unit {
    * positive): \`(u.facing - 64) * (Math.PI / 128)\`.
    */
   readonly facing: number;
+  /**
+   * The unit's sprite, a number that names it for as long as the unit lives (its address over 4). Experimental: read it
+   * once and keep it, and \`u.drawAs(color, sprite)\` writes the colour without reading the sprite again — a few
+   * actions, where reading it costs about three hundred.
+   */
+  readonly sprite: number;
   /** What a mineral field or a geyser still holds. */
   resources: number;
   /** Frames left of each effect, 0 … 255: write one to start, lengthen or end it. Stim, ensnare and the rest tick down about every eighth frame. */
@@ -199,9 +205,10 @@ ${kw}interface Unit {
   /**
    * Draw the unit in a player's colour, P1 … P12 (or 0 … 11), from this frame on: only how it looks changes — its owner,
    * what it sees and who controls it stay. Experimental (the main-screen spike, 2026-11-08): the write is the sprite's
-   * owner byte, which Remastered's own EUD emulator takes into the game; whether its graphics draw it is the probe's question.
+   * owner byte, which Remastered's own EUD emulator takes into the game, and both its graphics draw it (played). With the
+   * unit's sprite kept (\`const s = u.sprite;\` once), \`u.drawAs(p, s)\` writes without reading the sprite again.
    */
-  drawAs(player: Player | number): void;
+  drawAs(player: Player | number, sprite?: number): void;
   kill(): void;
   /** Take the unit off the map without a death. */
   remove(): void;
@@ -1124,7 +1131,7 @@ export interface SimUnit {
   readonly type: UnitType; readonly owner: Player; readonly x: number; readonly y: number;
   readonly hp: number; readonly maxHp: number; readonly shields: number; readonly maxShields: number; readonly energy: number;
   readonly kills: number; readonly orderId: Order; readonly resources: number; readonly invincible: boolean; readonly burrowed: boolean; readonly cloaked: boolean; readonly hallucinated: boolean;
-  readonly buildTime: number; readonly rank: number; readonly matrix: number; readonly speed: number; readonly facing: number; readonly speedUpgrade: boolean; readonly hasTarget: boolean; readonly inTransport: boolean;
+  readonly buildTime: number; readonly rank: number; readonly matrix: number; readonly speed: number; readonly facing: number; readonly sprite: number; readonly speedUpgrade: boolean; readonly hasTarget: boolean; readonly inTransport: boolean;
   /** Still on the map. */
   readonly alive: boolean;
 }

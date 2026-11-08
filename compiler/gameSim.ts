@@ -203,6 +203,7 @@ class GameUnit implements SimUnit {
   get matrix() { return this.read("matrix", () => this.game.u8[this.at + 0x114]); }
   get speed() { return this.read("speed", () => this.m.getInt32(this.at + 0x38, true)); }
   get facing() { return this.read("facing", () => this.game.u8[this.at + 0x21]); }
+  get sprite() { return this.read("sprite", () => this.m.getUint32(this.at + 0x0c, true) >>> 2); }
   get speedUpgrade() { return this.read("speedUpgrade", () => this.flag(0x10000000)); }
   get hasTarget() { return this.read("hasTarget", () => this.m.getUint32(this.at + 0x5c, true) !== 0); }
   get inTransport() { return this.read("inTransport", () => this.flag(0x00000040)); }

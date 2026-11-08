@@ -1,0 +1,35 @@
+TrigScript: first person, probe 4 (on the main screen) - answers
+Map: trigscript-first-person-4.scx (the lobby says "TrigScript first person 4")
+Single player. Please RECORD THE SCREEN. About 3 minutes.
+Play in REMASTERED graphics; press F5 ONCE about halfway to see Classic, and stay there to the end.
+
+What it is: the MAIN SCREEN is the Marine's eyes now - a colour 3D view made of 960 pixels (Flag-looking units
+recoloured every frame). The MINIMAP shows the real arena from above: your Marine (yellow) and the monsters (red).
+Your Marine starts selected: RIGHT-CLICK THE MINIMAP to move it, A then a click on the minimap to attack-move.
+B puts the eye over the Marine's shoulder (the Marine drawn yellow in the view) and back.
+The screen is held on the view: do not mind if it jumps back after you click the minimap.
+The first second the view builds itself (a row a frame).
+Pictures from the game played without anyone: first-person-4-play.png (a walk; the view above, the arena below),
+first-person-4-behind.png (over the shoulder).
+
+1. The picture
+  Does the main screen read as a 3D view: walls, floor, ceiling, rooms and doors? ->
+  Do the four wall shades help (near and far, the two sides)? ->
+  The monsters (red): do you see them come, scaled by distance, hidden behind walls? ->
+  Is it smooth (a new picture every frame), or does it flicker or tear? ->
+  Remastered vs Classic (F5): which looks better? ->
+
+2. Moving
+  Right-click on the minimap moves the Marine, and the view follows its turns smoothly? ->
+  A + click on the minimap attack-moves? ->
+  Does the screen stay on the view (and the minimap stay on the arena)? ->
+
+3. The minimap
+  Is the arena big enough on the minimap to steer by? ->
+  Is there a dark patch at the top (the view's pixels, owned by an empty slot)? Distracting? ->
+
+4. Over the shoulder (B): better or worse than first person? ->
+
+5. Any slowdown, stutter, missing pixels, "Unit unplaceable" warnings, other messages? ->
+
+Anything else (what would make it "oh wow") ->

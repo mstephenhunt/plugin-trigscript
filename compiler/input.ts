@@ -254,7 +254,7 @@ export function inputsOf(programs: Program[]): { sources: InputSource[]; mouse: 
       case "textLoop": text(s.of); s.body.forEach(stmt); break;
       case "unitLoop": s.body.forEach(stmt); break;
       case "unitWrite": unit(s.unit); expr(s.value); break;
-      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); break;
+      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); if (s.verb.do === "drawAs" && s.verb.sprite) expr(s.verb.sprite); break;
       case "select": s.units.forEach(unit); break;
       case "tableWrite": any(s.value); break;
       case "centerLocation": expr(s.x); expr(s.y); if (s.size) { expr(s.size.width); expr(s.size.height); } break;

@@ -76,7 +76,7 @@ function expressions(body: Stmt[], visit: (e: NumExpr | BoolExpr) => void, pick?
       case "textLoop": text(s.of); s.body.forEach(stmt); break;
       case "unitLoop": s.body.forEach(stmt); break;
       case "unitWrite": unit(s.unit); expr(s.value); break;
-      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); break;
+      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); if (s.verb.do === "drawAs" && s.verb.sprite) expr(s.verb.sprite); break;
       case "select": s.units.forEach(unit); break;
       case "tableWrite": any(s.value); break;
       case "if": expr(s.cond); s.then.forEach(stmt); s.else?.forEach(stmt); break;

@@ -156,6 +156,7 @@ describe("units: in the simulated game", () => {
       "2:Cannot assign to 'cloaked' because it is a read-only property.",
       "2:Cannot assign to 'facing' because it is a read-only property.",
     ]);
+    expect(errors("const u = first(); if (u) { u.sprite = 3; }")).toEqual(["2:Cannot assign to 'sprite' because it is a read-only property."]);
   });
   it("bounds() reads a location where it is now and writes move it; centerLocation() and bounds() agree", () => {
     const sim = run(`const b = bounds(${at(2)}); let w = b.right - b.left; b.left += 100; b.right += 100; let l = 0; l = bounds(${at(2)}).left;

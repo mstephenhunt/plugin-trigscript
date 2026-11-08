@@ -6649,6 +6649,31 @@ written only when it changes); the looks chosen by name rather than a flingy byt
 flingy, read and written as `stats()` fields are); the allowlist's entry for sprite +0x08 split by byte with the owner
 byte "allowed (live sprites, 0 … 11)"; and an error for a value past 11, which the game silently keeps aside.
 
+### S6. First person on the main screen: probe 4 (2026-11-08)
+
+The spike played (Main Screen Pixels, two recordings): 40 × 24 Flag-looking Spider Mines 16 apart, recoloured through
+their sprites' owner byte, changed every game frame (23.8 a second, the minimap's ~12) and read as a picture in Classic
+and Remastered. The user's pick of the minimap probes was probe 3 (the Marine drives the view). So
+**`probes/first-person-4.ts`** ("TrigScript first person 4"): the main screen is the view, the minimap the arena.
+
+- **The map** (`probes/lib/first-person-4-map.mts`): 64 × 64 Ice, so the arena (60 × 46 tiles, two rooms over a long
+  hall, walls set back as probe 2's) fills most of the minimap; the board 640 × 384 pixels along the top, the camera held
+  on it every frame. Map Revealers of P1's light the board and the arena. 90% of the plan's floor walked, 4% of its walls.
+- **The pixels**: 960 mines made as Flags for **P8**, an empty slot, so they are not P1's green on the minimap; P8's
+  colour (CRGB) is the ceiling's dark, so on the minimap they are a dark patch. Each pixel's sprite is read once
+  (**`u.sprite`**, a new read-only field: +0x0C over 4) and kept; **`u.drawAs(color, sprite)`** then writes the owner
+  byte through it, the masked write alone (the unit's own check, a trigger, before it). Only pixels whose colour changed
+  are written. In the lifted game the owner bytes of P8's mines follow the picture, and the pixels stay put while the
+  Marine walks and the monsters fight.
+- **The picture**: a colour raycaster over 40 columns and 24 rows, a wall's height `TALL / distance` with TALL 30 (square
+  pixels); walls in four shades by distance and side (P7 light, P3, P4, P5), a brown floor (P6), a dark ceiling (P8);
+  the monsters red (P2, also their minimap colour), scaled and cut per column by depth, their silhouettes as fog.sprite's
+  figures; over the shoulder (B) the Marine yellow (P1, also yours on the minimap).
+- **Control** as probe 3's: right-click (or A, click) on the minimap; the view eases toward the Marine's facing.
+- **Measured** (lifted game, a walk of five right-clicks, Remastered's weights, from frame 40): **4.1 ms a frame on
+  average, 5.4 at the most**; pixels written a frame: median 12, 90th 75, at the most ~300, 26 on average; the picture
+  changed on 420 of 660 frames (the rest nothing moved). The board's making reads 960 sprites in one frame: 12 ms, once.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
