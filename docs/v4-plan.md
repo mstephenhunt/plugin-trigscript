@@ -6509,6 +6509,45 @@ column lit whole where one face meets another — now the default of `fog.column
 **Not yet:** Textures, sprites
 (a monster drawn as a scaled picture in front of the walls), a floor with distance, more than one level.
 
+### S7. Für Elise, the third Showcase (asked 2026-11-08)
+
+The user: "for our next showcase trigscript map i want to show off the sound/music capabilities … Für Elise with a
+cool visualizer … make it sound as awesome as possible". Showcase #3 (the raycaster becomes #4; the two run
+alongside).
+
+**Decided (the user, 2026-11-08):** the arc, not plain piano — A as an intimate solo piano; the stormy D-minor C
+section turns into a full arrangement (strings, low brass, timpani) switched in with `Band`; the last A back to solo
+piano in a big hall, ending on the soft final chord. Probes first: one for the sound, one for the visualizer's timing.
+
+**Why the library needs work for a solo piano** (read 2026-11-08):
+- `sampler()` takes one recording and pitches it everywhere — away from its root the notes sound sped up or slowed.
+  `fmSynth` gives an electric piano, not a grand.
+- `midi()` snaps every note to a step grid at the file's first tempo; velocity only changes loudness, not tone; no
+  sustain pedal. A grid Für Elise sounds like a ringtone; the piece lives on rubato and pedalled arpeggios.
+- Played note by note, a sound starts on a 42 ms frame plus the mixer's 21.3 ms grid (sd 7.8 ms against the same
+  song pre-mixed). Under a band that is not heard; a lone piano's sixteenths (~115 ms) would wobble. So the piano is
+  **rendered** (`render` / `stems`) and the visuals follow the note timeline known when the script is built.
+
+**The plan:**
+1. *Sound.* A multisampled instrument in `trigscript/music`: recordings across the keyboard, velocity layers (a soft
+   note sounds soft, not just quieter), release samples, a sustain pedal with sympathetic resonance. A performance
+   that is not a grid: notes at their own times and velocities, a tempo map (rubato), pedal. Sources: the Salamander
+   Grand Piano V3 (Alexander Holm, CC-BY 3.0 — credit in the map description and the docs) and VSCO 2 Community
+   Edition (Versilian Studios, CC0) for strings, brass and timpani. Both are additions every later map can use.
+2. *Visualizer.* Minimap: notes falling onto a keyboard row that lights as each key sounds, coloured by hand (the
+   Overlord colour board, `probes/lib/unit-screen.ts`). Main screen: StarCraft as the stage — a visible effect on each
+   note (melody, the left hand's arpeggios across a terrain keyboard, big effects on the C section's chords).
+3. Showcase build, recording, the Showcase entry in scm-js docs/trigscript.md — as Korobeiniki did.
+
+**Rights (keep):** Beethoven's score is public domain; the transcription and the arrangement are ours, written from
+the score — never an existing MIDI file or someone's arrangement. Samples only from the two libraries above (or
+another with a licence that allows putting them in a map). Never a Blizzard sound. Nothing called "Für Elise" by
+anyone else's name.
+
+**Probes (2026-11-08):** branch `fur-elise` (sound: worktree ~/github/plugin-trigscript-fur-elise) and
+`fur-elise-visual` (visualizer: worktree ~/github/plugin-trigscript-fur-elise-visual). Each records its results
+below in its own subsection.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
