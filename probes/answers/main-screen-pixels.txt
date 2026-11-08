@@ -1,0 +1,37 @@
+TrigScript: main-screen pixels - answers
+Map: trigscript-main-screen-pixels.scx (lobby name "Main Screen Pixels")
+Single player. About 90 seconds. The camera starts on the board; nothing reads the keys. Please RECORD THE SCREEN.
+Each step says what it is in the text lines. Halfway through each step a line says "Press F5 now": press it, so every
+step is seen in both graphics (Classic and Remastered). The question is whether the game DRAWS a unit in a new colour
+when the map changes the colour every frame, and how that looks as a picture - so for each step, say what each
+graphics mode showed.
+
+A (second 1): two rows. Top: 12 Flag-looking pixels, each drawn as P1 ... P12. Below: real Flags made by P1 ... P8 and P12.
+  Top row, the 12 colours from left to right (Classic) -> 
+  Top row, the 12 colours (Remastered graphics) -> 
+  Do the top row's first 8 match the real Flags below them (red, orange, yellow, green, cyan, blue, purple, white were asked for)? -> 
+  Is the 12th of the top row the same colour as the real Flag below it (P12)? -> 
+
+B (second 12): 20 x 12 Flag-looking pixels, 32 apart, a rainbow moving across them every frame
+  Does the rainbow show and move at all? Classic -> 
+  Remastered graphics -> 
+  Smooth (a step every other frame) or jumpy / in bursts? Any flicker or pixels that lag? -> 
+  Does it read as a picture from a normal distance, or as a field of separate little flags? -> 
+
+C (second 28, 37, 46): the same rainbow with other looks
+  C1 Zerg Eggs: how much of each egg changes colour; better or worse than Flags? Classic -> 
+                                                                                 Remastered -> 
+  C2 start-location rings, 64 apart (a big ring of arrows): do they show at all in a game; do they change colour? -> 
+  C3 plain Spider Mines (they burrow first): do the colour changes show on a burrowed mine? -> 
+  Which look is the best "pixel" in Classic, and which in Remastered? -> 
+
+D (second 55): a filled square turning, white and yellow on blue, on the Flag board
+  Does it read as a turning square? Classic -> 
+  Remastered -> 
+
+E (second 71): 40 x 24 Flag pixels, 16 apart (960 of them), all written every frame, the rainbow again
+  Does the game slow down or stutter? -> 
+  Does the rainbow look smoother / more like an image than B's 20 x 12? -> 
+  Flags overlapping each other: a mess, or a denser picture? -> 
+
+Anything else (messages, sounds, the game ending, "EUD" errors, the units being clickable) -> 
