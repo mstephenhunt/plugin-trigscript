@@ -11768,6 +11768,13 @@ export class Structured {
         emit({ do: "locate", location: at });
         return;
       }
+      case "drawAs": {
+        const a = e.arguments[0];
+        if (!a || e.arguments.length > 1) { this.c.error(e, "drawAs() takes one player, P1 … P12, or a number 0 … 11."); return; }
+        const amount = this.num(a);
+        if (amount) emit({ do: "drawAs", amount });
+        return;
+      }
       case "damage": case "heal": {
         const a = e.arguments[0];
         if (!a || e.arguments.length > 1) { this.c.error(e, `${m.name}() takes hit points, or { percent: 50 } of the type's maximum.`); return; }

@@ -756,7 +756,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     const u0 = unit(s.unit, pre);
     const v = s.verb;
     // (The amount is worked out whether or not there is a unit.)
-    const amount = v.do === "damage" || v.do === "heal" ? plain(fix(v.amount, pre) as NumExpr, pre) : null;
+    const amount = v.do === "damage" || v.do === "heal" || v.do === "drawAs" ? plain(fix(v.amount, pre) as NumExpr, pre) : null;
     if (isNone(u0)) return;
     const u = held(u0, pre);
     const e = u.e;
@@ -812,6 +812,17 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
             ...when(isUnit(nn), [poke(at_(nn, PREV_UNIT), ptrOf(e))]),
           ], [poke(bin("+", k(FIRST_UNIT), to), ptrOf(e)), poke(of(e, NEXT_UNIT), k(0)), poke(of(e, PREV_UNIT), k(0))]),
           { kind: "action", record: FORGET_COUNTS, ...at() } as Stmt,
+        );
+        break;
+      }
+      case "drawAs": {
+        // The owner byte of the unit's sprite (sprite +0x0A, through the unit's sprite pointer at +0x0C): the player whose
+        // colour the game draws the unit in, and nothing else — the unit's owner, vision and lists stay. Remastered's
+        // emulator writes it into the game's own sprite for 0 … 11 and keeps 12 and up beside it (the main-screen spike).
+        const sp = fresh("sp");
+        body.push(
+          dec(sp, k(0), 0x3fffffff), ...through(of(e, 0x0c >> 2), (h) => [set(sp, h(POINTER, 2))]),
+          poke(bin("+", ranged(V(sp), 0, 0x3fffffff), k(2 - DEATHS / 4)), bin("*", atMost(amount!, 11), k(0x10000)), 0x00ff0000),
         );
         break;
       }

@@ -6503,6 +6503,64 @@ column lit whole where one face meets another — now the default of `fog.column
 **Not yet:** Textures, sprites
 (a monster drawn as a scaled picture in front of the walls), a floor with distance, more than one level.
 
+### S6 spike: pixels on the main screen (2026-11-08)
+
+The long shot of the third Showcase, a first-person game: could the picture be drawn on the main game screen, in
+colour and at the game's full rate, instead of in the minimap's fog (black and white, 12 pictures a second)? Asked of
+Remastered's own emulator (the R0 tool, run again on the in-game dump, this time on objects in use) and of the lifted
+game; how Remastered's graphics draw it is the probe's question.
+
+**What can change on an object already in the game.** Very little, and one thing is enough:
+- *A sprite's owner byte* (sprite +0x0A, the dword at +0x08 masked 0x00FF0000) — the player whose colour the game
+  draws the unit in. Written to a sprite in use, values 0 … 11 land in the game's own sprite; 12 and up are kept beside
+  it and never used. The allowlist's verdict for that dword ("ignored", from sprites not in use) is wrong for this byte
+  of a live sprite; the sprite id's low byte and the selection byte also land. eudplib has the same write as
+  `CUnit.set_color` (`scdata/cunit.py`), so it is known in the EUD community; `give()` (eudplib's `cgive`) does not do it.
+- *Everything else about how a sprite or an image looks is out of reach.* A sprite's position, flags, visibility and its
+  three image pointers are kept beside the game (they read back 0). All 5,000 image records were written at +0x08,
+  +0x18 and +0x1C (id, frame set and index, position): not one write reached the game, in use or not. So no frame
+  changes, no drawing-function or remap changes, no moving a sprite by memory. (A unit's sprite pointer, +0x0C, does
+  take the address of another sprite — a curiosity.)
+- *The .dat tables*, for what is made after the write: units.dat's flingy (Magenta's `unit.graphics`, played), flingy's
+  sprite, sprites.dat's image and visibility, images.dat's drawing function, remapping, iscript and clickable are all
+  allowed; images.dat's GRP is not (no new art). That gives a made unit any of the game's images, not a new look a frame.
+- *A player's colour* (`stats(P).color`, played by Magenta) changes all of that player's units at once: a palette
+  entry, not a pixel.
+
+**The pixel.** A Spider Mine, made by Create Unit at a location's centre: mines never collide, so the lifted game puts
+each exactly where asked, 16 pixels apart (every other kind tried — Overlords, Scourge, eggs, flags, crystals — was
+pushed aside or failed). Its looks are another unit's, by units.dat's flingy byte written before the Create Unit and
+put back after. A mine with borrowed looks never burrows (the borrowed script has no burrow), so it stands still and
+in sight. Its owner stays Player 1, so the board lights itself; only the sprite's owner changes.
+
+**What it gives.** 12 colours a pixel (P1 … P8 in any colour CRGB sets, P9 … P12 fixed), every pixel every frame,
+anywhere on the map; up to about 1,600 pixels (the unit limit). The weak point is the look: no StarCraft image is a
+filled patch of player colour. The densest are a start location's ring of arrows (all player colour, 121 × 62, hollow),
+the beacons (60–76 % of a 100 × 50 emblem), the Flag (47 % of 20 × 32) and the Zerg Egg (30 % of 32 × 29); the
+rest is grey metal and shadow. So a 20 × 12 board at 32 pixels a cell reads as coloured glyphs, not squares; Remastered's
+HD art may cover more or less of each in player colour. 16 apart (40 × 24, 960 pixels) the Flags overlap and the
+picture is denser.
+
+**What it costs**, in the lifted game: about 310 conditions and actions a pixel a frame with `u.drawAs()` as built for
+the spike (the unit checked, its sprite pointer read bit by bit, a masked write at a computed address): 75k a frame
+for 240 pixels, 297k for 960 (about 5 ms of Remastered's 15 ms budget, by A4's weights). A board that keeps each
+pixel's sprite address once (it never changes while the unit lives) would pay only the masked write, a few dozen a
+pixel, and one that writes only the pixels that changed less again.
+
+**The probe** (`probes/main-screen-pixels.ts`, map "Main Screen Pixels", answers `probes/answers/main-screen-pixels.txt`):
+A, the 12 colours by `drawAs` beside real Flags of P1 … P8 and P12; B, a moving rainbow on 20 × 12 Flag-looking pixels;
+C, the same as Zerg Eggs, start-location rings 64 apart and plain mines; D, a filled square turning; E, 960 pixels 16
+apart. Each step asks for F5 halfway, for both graphics. In the lifted game the three tests pass (the sprites' owner
+bytes follow the rainbow; every pixel on its cell) and the allowlist check finds nothing that ends the game. Not played
+yet: whether Remastered's renderers, Classic and HD, draw a sprite in its new owner's colour from the next frame is the
+whole question; the game keeps the byte, and a mind-controlled unit's colour changes at once, so they probably read it.
+
+**Built for it:** `u.drawAs(player)`, the one library addition, marked experimental. **What the library would need**
+if it plays: a `screen`-like board of units in `stdlib/` (made once, its sprites' addresses kept in an array, each cell
+written only when it changes); the looks chosen by name rather than a flingy byte (a `looks` table field, units.dat
+flingy, read and written as `stats()` fields are); the allowlist's entry for sprite +0x08 split by byte with the owner
+byte "allowed (live sprites, 0 … 11)"; and an error for a value past 11, which the game silently keeps aside.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

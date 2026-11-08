@@ -545,7 +545,7 @@ class ProgramRun {
   private *unitDo(e: UnitExpr, verb: UnitVerb, at: At): Gen<void> {
     const u = yield* this.living(e);
     // The amount is computed whether or not there is a unit, as the game computes it.
-    const amount = verb.do === "damage" || verb.do === "heal" ? yield* this.amount(verb.amount) : 0;
+    const amount = verb.do === "damage" || verb.do === "heal" || verb.do === "drawAs" ? yield* this.amount(verb.amount) : 0;
     if (!u) return;
     switch (verb.do) {
       case "kill": case "remove": this.sim.game.gone(u, verb.do === "kill", undefined, false); this.sim.unitEvent(this, verb.do === "kill" ? ActionType.KillUnit : ActionType.RemoveUnit, u, at); break;
@@ -553,6 +553,8 @@ class ProgramRun {
       // (The unit takes up the order and keeps it here: the simulator moves nothing, so it never arrives.)
       case "order": u.orderId = ORDER_OF_VERB[verb.order]; this.sim.unitEvent(this, ActionType.Order, u, at, { location: verb.target, text: verb.order }); break;
       case "locate": this.sim.centre(verb.location, u.x, u.y); break;
+      // (How the unit is drawn: the simulator draws nothing.)
+      case "drawAs": break;
       case "damage": case "heal": {
         // In the game's own units, 256 to a point, as the lowering computes it.
         const step = verb.percent ? Math.floor((u.maxHp * 256 * amount) / 100) : amount * 256;

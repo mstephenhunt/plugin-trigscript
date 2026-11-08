@@ -260,7 +260,9 @@ export type UnitVerb =
   /** Hit points down (at 0 the unit dies) or up (to the type's maximum), by points or by a percentage of the maximum. */
   | { do: "damage" | "heal"; amount: NumExpr; percent: boolean }
   /** Centre a location on the unit, its size kept. */
-  | { do: "locate"; location: number };
+  | { do: "locate"; location: number }
+  /** Draw the unit in another player's colour: its sprite's owner byte, nothing else (the main-screen spike). */
+  | { do: "drawAs"; amount: NumExpr };
 
 /**
  * One cell of the game's tables (`tables.ts`): `base + index × stride + key`, `width` bytes or one
@@ -815,7 +817,7 @@ export function declarations(body: Stmt[]): VarDecl[] {
       case "textLoop": text(s.of); out.push(s.decl); s.body.forEach(stmt); break;
       case "unitLoop": out.push(s.decl); if (s.was) out.push(s.was); s.body.forEach(stmt); break;
       case "unitWrite": unit(s.unit); init(s.value); break;
-      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal") expr(s.verb.amount); break;
+      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") expr(s.verb.amount); break;
       case "select": s.units.forEach(unit); break;
       case "tableWrite": init(s.value); break;
       case "if": init(s.cond); s.then.forEach(stmt); s.else?.forEach(stmt); break;

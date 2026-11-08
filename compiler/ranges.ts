@@ -435,7 +435,7 @@ export function rangeNumbers(program: Program): void {
         return;
       }
       case "unitWrite": unit(s.unit, facts); if (FLAGS.has(s.field)) bool(s.value as BoolExpr, facts); else num(s.value as NumExpr, facts); return;
-      case "unitDo": unit(s.unit, facts); if (s.verb.do === "damage" || s.verb.do === "heal") num(s.verb.amount, facts); return;
+      case "unitDo": unit(s.unit, facts); if (s.verb.do === "damage" || s.verb.do === "heal" || s.verb.do === "drawAs") num(s.verb.amount, facts); return;
       case "tableWrite": if (isTextExpr(s.value as { kind: string })) text(s.value as TextExpr, facts); else if (s.boolean) bool(s.value as BoolExpr, facts); else num(s.value as NumExpr, facts); return;
       case "if": {
         if (holdsCall(s.cond, callCache)) forget(facts);

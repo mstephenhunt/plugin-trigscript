@@ -190,6 +190,12 @@ ${kw}interface Unit {
   order(order: "move" | "patrol" | "attack", target: Location): void;
   /** Hand the unit to another player. */
   give(player: Player): void;
+  /**
+   * Draw the unit in a player's colour, P1 … P12 (or 0 … 11), from this frame on: only how it looks changes — its owner,
+   * what it sees and who controls it stay. Experimental (the main-screen spike, 2026-11-08): the write is the sprite's
+   * owner byte, which Remastered's own EUD emulator takes into the game; whether its graphics draw it is the probe's question.
+   */
+  drawAs(player: Player | number): void;
   kill(): void;
   /** Take the unit off the map without a death. */
   remove(): void;
