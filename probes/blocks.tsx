@@ -12,7 +12,9 @@
 //   - four lines at once set off the drop straight away;
 //   - from level 4 the last verse, a tone up, takes the verse's place; the outro when the game is over;
 //   - one, two or three lines ring a chime of as many notes on the next beat.
-// A ghost shows where the piece would land: Overlords of Player 12's, the minimap's ninth colour.
+// A ghost shows where the piece would land: four Overlords of another player's. Player 12's did not show on
+// Remastered's minimap (play 2, 2026-11-08), so G tries each player that could own them: P12, P11, P10, P9 and P2,
+// the computer (which moves its own units, so each redraw takes away all of its Overlords in the well first).
 //
 // A D move (hold to slide), W turns clockwise, Q the other way, S drops (hold to keep dropping), Space all the way,
 // E holds the piece for later. Host it as a multiplayer game, alone, with the game's music off.
@@ -107,8 +109,10 @@ const DELAY = 7, SLIDE = 2, DROP_EVERY = 2;
 /** The stack is high when it reaches this row of the well, and low again below LOW. */
 const HIGH = 7, LOW = 10;
 const TITLE = 0, PLAYING = 1, OVER = 2;
-/** Where the ghost's Overlords are made: Player 12's, a colour of its own on the minimap, and units that never move. */
+/** Where the ghost's Overlords are made and taken away: a cell, or the whole well. */
 const GHOST = reserveLocation("blocks: the ghost piece");
+/** Whose Overlords the ghost is, as G goes round them. */
+const GHOST_OWNERS = ["P12", "P11", "P10", "P9", "P2, the computer"];
 
 program(async () => {
   const screen = new Screen(0, 0, SCREEN_W, SCREEN_H);
@@ -119,7 +123,7 @@ program(async () => {
   start(music.conduct(st, band));
 
   // (mode TITLE, music INTRO: written as numbers, which is what an object of the program starts from.)
-  const hud = { score: 0, lines: 0, level: 0, best: 0, mode: 0, music: 0 };
+  const hud = { score: 0, lines: 0, level: 0, best: 0, mode: 0, music: 0, ghost: 0 };
   ui.lines(P1, () => (
     <>
       <Panel title="KOROBEINIKI">
@@ -130,6 +134,9 @@ program(async () => {
       </line>
       {hud.mode === TITLE && <line color="yellow">Space to play</line>}
       {hud.mode === OVER && <line color="red">Game over. Space to play again</line>}
+      <line color="sage">
+        ghost: {GHOST_OWNERS.map((name, k) => hud.ghost === k && <span color="white">{name}</span>)}   (G changes)
+      </line>
       <line color="grey">A D move   W Q turn   S down   Space drop   E hold</line>
     </>
   ));
@@ -140,10 +147,7 @@ program(async () => {
   let high = false;
   /** A level was reached, or four lines went at once, since the band was last told. */
   let leveled = false, tetris = false;
-  // The ghost: where the piece would land, four of Player 12's Overlords; drawn again when the piece moves or turns.
-  const ghostX = [0, 0, 0, 0];
-  const ghostY = [0, 0, 0, 0];
-  const ghostOn = [0, 0, 0, 0];
+  // The ghost: where the piece would land, four Overlords of the player G chose; drawn again when the piece moves or turns.
   let ghostKey = -1;
 
   /** A cell of the well, on the board and on the screen. */
@@ -316,21 +320,23 @@ program(async () => {
     hud.music = s;
   }
 
+  /** Every Overlord of the ghost's owner in the well taken away (a computer's may have wandered from its cell). */
+  function clearGhost() {
+    centerLocation(GHOST, WELL_X * 64 + WELL_W * 32, WELL_Y * 64 + WELL_H * 32, WELL_W * 64, WELL_H * 64);
+    if (hud.ghost === 0) removeUnitAt(players.P12, units.ZergOverlord, "All", GHOST);
+    if (hud.ghost === 1) removeUnitAt(players.P11, units.ZergOverlord, "All", GHOST);
+    if (hud.ghost === 2) removeUnitAt(players.P10, units.ZergOverlord, "All", GHOST);
+    if (hud.ghost === 3) removeUnitAt(players.P9, units.ZergOverlord, "All", GHOST);
+    if (hud.ghost === 4) removeUnitAt(players.P2, units.ZergOverlord, "All", GHOST);
+  }
+
   /** The ghost where the piece would land now; taken away when no game is on. */
   function ghost() {
     // (Not its row: falling does not move the ghost.)
     const key = hud.mode === PLAYING ? (piece * 4 + turn) * 32 + px + 4 : -2;
     if (key === ghostKey) return;
     ghostKey = key;
-    let k = 0;
-    while (k < 4) {
-      if (ghostOn[k] === 1) {
-        centerLocation(GHOST, (WELL_X + ghostX[k]) * 64 + 32, (WELL_Y + ghostY[k]) * 64 + 32, 32, 32);
-        removeUnitAt(players.P12, units.ZergOverlord, 1, GHOST);
-        ghostOn[k] = 0;
-      }
-      k++;
-    }
+    clearGhost();
     if (hud.mode !== PLAYING) return;
     // Down as far as the piece would go, with the piece itself out of the way.
     place(0);
@@ -338,16 +344,17 @@ program(async () => {
     while (fits(piece, turn, px, gy + 1)) gy++;
     place(COLOR[piece]);
     const at = (piece * 4 + turn) * 8;
-    k = 0;
+    let k = 0;
     while (k < 4) {
       const cx = px + SHAPES[at + k * 2], cy = gy + SHAPES[at + k * 2 + 1];
       // Not where the piece is already.
       if (cy >= 0 && board[cy * WELL_W + cx] === 0) {
         centerLocation(GHOST, (WELL_X + cx) * 64 + 32, (WELL_Y + cy) * 64 + 32, 32, 32);
-        createUnit(players.P12, units.ZergOverlord, 1, GHOST);
-        ghostX[k] = cx;
-        ghostY[k] = cy;
-        ghostOn[k] = 1;
+        if (hud.ghost === 0) createUnit(players.P12, units.ZergOverlord, 1, GHOST);
+        if (hud.ghost === 1) createUnit(players.P11, units.ZergOverlord, 1, GHOST);
+        if (hud.ghost === 2) createUnit(players.P10, units.ZergOverlord, 1, GHOST);
+        if (hud.ghost === 3) createUnit(players.P9, units.ZergOverlord, 1, GHOST);
+        if (hud.ghost === 4) createUnit(players.P2, units.ZergOverlord, 1, GHOST);
       }
       k++;
     }
@@ -415,6 +422,11 @@ program(async () => {
       if (keyPressed(P1, "W")) rotate(1);
       if (keyPressed(P1, "Q")) rotate(3);
       if (keyPressed(P1, "E")) hold();
+      if (keyPressed(P1, "G")) {
+        clearGhost();
+        hud.ghost = (hud.ghost + 1) % GHOST_OWNERS.length;
+        ghostKey = -1;
+      }
       if (keyPressed(P1, "Space")) {
         let rows = 0;
         while (move(0, 1, 0)) rows++;
@@ -446,4 +458,16 @@ test("the title, a game, and the music it asks for", (sim) => {
   for (let i = 0; i < 40; i++) sim.press("Space").frames(4);
   sim.frames(200);
   expect(sim).toHavePrinted("Game over. Space to play again");
+});
+
+test("G goes round the ghost's owners", (sim) => {
+  sim.frames(10);
+  expect(sim).toHavePrinted("ghost: P12");
+  sim.press("Space").frames(30);
+  sim.press("G").frames(10);
+  expect(sim).toHavePrinted("ghost: P11");
+  sim.press("G").frames(10).press("G").frames(10).press("G").frames(10);
+  expect(sim).toHavePrinted("ghost: P2, the computer");
+  sim.press("G").frames(10);
+  expect(sim).toHavePrinted("ghost: P12");
 });
