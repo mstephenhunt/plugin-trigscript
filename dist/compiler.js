@@ -13710,11 +13710,133 @@ function ownErrors(program) {
       set(errors.thrown, ERROR_CODES.RangeError, at0)
     ] });
   }
+  const lazy = lazyMessages(errors, body2, functions2, at0);
   return {
     ...program,
-    body: [{ kind: "declare", decl, init: { kind: "const", value: 0 }, at: at0, label: "" }, ...body2],
-    ...functions2.length ? { functions: functions2 } : {}
+    body: [{ kind: "declare", decl, init: { kind: "const", value: 0 }, at: at0, label: "" }, ...lazy.declares, ...lazy.body],
+    ...lazy.functions.length ? { functions: lazy.functions } : {}
   };
+}
+var messageSite = (errors) => `${errors.thrown}@site`;
+var messageArg = (errors, i) => `${errors.thrown}@arg${i}`;
+var MESSAGE_FN = "@error.message";
+var LISTS = /* @__PURE__ */ new Set(["body", "then", "else", "catch", "update", "before", "handler"]);
+var LISTS_OF_LISTS = /* @__PURE__ */ new Set(["iterations", "branches"]);
+function lazyMessages(errors, body2, functions2, at0) {
+  const unchanged = { body: body2, functions: functions2, declares: [] };
+  const message = errors.message, site = messageSite(errors);
+  const sites = /* @__PURE__ */ new Map();
+  let unknown = false;
+  const look = (x) => {
+    if (Array.isArray(x)) {
+      x.forEach(look);
+      return;
+    }
+    if (!x || typeof x !== "object") return;
+    const o = x;
+    if (o.kind === "assignText" && o.target === message) {
+      const v = o.value;
+      if (v.kind === "text") sites.set(o, { value: v, args: [] });
+      else if (v.kind === "template" && !mentions(v, message) && v.parts.every((p) => p.kind === "text" || p.kind === "number" || p.kind === "value" && p.text.kind === "text")) {
+        const args = [];
+        const parts = v.parts.map((p) => {
+          if (p.kind !== "number" || p.expr.kind === "const") return p;
+          args.push(p.expr);
+          return { ...p, expr: { kind: "var", id: messageArg(errors, args.length - 1) } };
+        });
+        sites.set(o, { value: { ...v, parts }, args });
+      }
+    }
+    for (const [k4, v] of Object.entries(o)) {
+      if (v === message && !(k4 === "target" && o.kind === "assignText" || k4 === "id" && (o.kind === "textVar" || "name" in o && "kind" in o && !("value" in o)))) unknown = true;
+      if (v && typeof v === "object") look(v);
+    }
+  };
+  look([body2, functions2]);
+  if (!sites.size || unknown) return unchanged;
+  const numbered = new Map([...sites.keys()].map((o, k4) => [o, k4 + 1]));
+  const at = at0, label = "(error message)";
+  const siteRef = { kind: "var", id: site };
+  const set = (target, value, at2) => ({ kind: "assign", target, value, at: at2, label: "" });
+  const made2 = () => {
+    const all = [...sites.values()];
+    let chain = [];
+    for (let k4 = all.length; k4 >= 1; k4--) {
+      const make = [{ kind: "assignText", target: message, value: all[k4 - 1].value, at, label }];
+      chain = k4 === all.length ? make : [{ kind: "if", cond: { kind: "compare", op: "==", left: siteRef, right: { kind: "const", value: k4 }, at, label }, then: make, else: chain, at, label }];
+    }
+    return [...chain, set(site, { kind: "const", value: 0 }, at)];
+  };
+  const reads2 = [];
+  let unsafe = false;
+  const readsHere = (x, key) => {
+    if (key && (LISTS.has(key) || LISTS_OF_LISTS.has(key)) && Array.isArray(x)) return false;
+    if (Array.isArray(x)) return x.some((y) => readsHere(y));
+    if (!x || typeof x !== "object") return false;
+    const o = x;
+    if (o.kind === "textVar" && o.id === message) return true;
+    return Object.entries(o).some(([k4, v]) => v && typeof v === "object" && readsHere(v, k4));
+  };
+  const mayThrow = (x) => {
+    if (Array.isArray(x)) return x.some(mayThrow);
+    if (!x || typeof x !== "object") return false;
+    const o = x;
+    if (o.kind === "throw" || o.kind === "assignText" && o.target === message) return true;
+    if (o.call && typeof o.call === "object" && typeof o.call.fn === "string") return true;
+    return Object.values(o).some(mayThrow);
+  };
+  const callsIn = (x, key) => {
+    if (key && (LISTS.has(key) || LISTS_OF_LISTS.has(key)) && Array.isArray(x)) return false;
+    if (Array.isArray(x)) return x.some((y) => callsIn(y));
+    if (!x || typeof x !== "object") return false;
+    const o = x;
+    if (o.call && typeof o.call === "object" && (typeof o.call.fn === "string" || mayThrow(o.call.body))) return true;
+    return Object.entries(o).some(([k4, v]) => v && typeof v === "object" && callsIn(v, k4));
+  };
+  const throwsHere = (s) => s.kind === "call" ? s.call.params.some((p) => callsIn(p.init)) : callsIn(s);
+  const deep = (x, key) => {
+    if (key && LISTS.has(key) && Array.isArray(x)) return list(x);
+    if (key && LISTS_OF_LISTS.has(key) && Array.isArray(x)) return x.map(list);
+    if (Array.isArray(x)) return x.map((y) => deep(y));
+    if (!x || typeof x !== "object") return x;
+    return Object.fromEntries(Object.entries(x).map(([k4, v]) => [k4, v && typeof v === "object" ? deep(v, k4) : v]));
+  };
+  const list = (stmts) => stmts.flatMap((s) => {
+    const k4 = numbered.get(s);
+    if (k4 !== void 0) {
+      const { args } = sites.get(s);
+      return [...args.map((e, i) => set(messageArg(errors, i), deep(e), s.at)), set(site, { kind: "const", value: k4 }, s.at)];
+    }
+    const out = [];
+    if (readsHere(s)) {
+      if (s.kind === "while" || s.kind === "do" || s.kind === "for" || s.kind === "unitLoop" || s.kind === "watch" || throwsHere(s)) unsafe = true;
+      const at2 = "at" in s && s.at ? s.at : at0;
+      const read = { kind: "block", body: [], at: at2 };
+      reads2.push(read);
+      out.push(read);
+    }
+    out.push(deep(s));
+    if (s.kind === "assignText" && s.target === message) out.push(set(site, { kind: "const", value: 0 }, s.at));
+    return out;
+  });
+  const newBody2 = list(body2);
+  const newFunctions = functions2.map((f) => ({ ...f, body: list(f.body) }));
+  if (unsafe) return unchanged;
+  const waiting = (body3, at2) => ({ kind: "if", cond: { kind: "compare", op: "!=", left: siteRef, right: { kind: "const", value: 0 }, at: at2, label }, then: body3, at: at2, label });
+  if (reads2.length === 1) reads2[0].body = [waiting(made2(), reads2[0].at)];
+  else {
+    for (const r of reads2) r.body = [waiting([{ kind: "call", call: { fn: MESSAGE_FN, name: "(error message)", params: [], body: [], at: r.at, label }, at: r.at, label }], r.at)];
+    if (reads2.length) newFunctions.push({ id: MESSAGE_FN, name: "(error message)", params: [], at: at0, body: made2() });
+  }
+  const declare = (id, name) => ({ kind: "declare", decl: { id, name, kind: "number", shared: true, routed: true, at: at0 }, init: { kind: "const", value: 0 }, at: at0, label: "" });
+  const most = Math.max(...[...sites.values()].map((x) => x.args.length));
+  const declares = [declare(site, "(error message site)"), ...Array.from({ length: most }, (_, i) => declare(messageArg(errors, i), `(error message ${i + 1})`))];
+  return { body: newBody2, functions: newFunctions, declares };
+}
+function mentions(x, id) {
+  if (x === id) return true;
+  if (Array.isArray(x)) return x.some((y) => mentions(y, id));
+  return !!x && typeof x === "object" && Object.values(x).some((v) => mentions(v, id));
 }
 var CURRENT_PLAYER = 13;
 function taskCatch(list, task) {
@@ -20033,12 +20155,12 @@ function knownTexts(program, pool, base) {
     blocks.set(m.block, m);
     return [];
   };
-  const mentions4 = (x, id) => {
-    if (Array.isArray(x)) return x.some((y) => mentions4(y, id));
+  const mentions5 = (x, id) => {
+    if (Array.isArray(x)) return x.some((y) => mentions5(y, id));
     if (!x || typeof x !== "object") return false;
     const o = x;
     if (o.kind === "textVar" && o.id === id || o.kind === "built" && o.buffer === id) return true;
-    return Object.values(o).some((v) => v && typeof v === "object" && mentions4(v, id));
+    return Object.values(o).some((v) => v && typeof v === "object" && mentions5(v, id));
   };
   const textArrays = /* @__PURE__ */ new Map();
   const findTextArrays = (x) => {
@@ -20349,7 +20471,7 @@ function knownTexts(program, pool, base) {
       case "assignText": {
         if (madeVars.has(s.target)) {
           const m = madeVars.get(s.target);
-          if (!mentions4(s.value, s.target)) return make(s.value, m) ?? [walk(s)];
+          if (!mentions5(s.value, s.target)) return make(s.value, m) ?? [walk(s)];
           const body3 = make(s.value, SCRATCH);
           return body3 ? [...blockOf(SCRATCH), ...body3, ...copyBlock(SCRATCH, m)] : [walk(s)];
         }
@@ -20408,7 +20530,7 @@ function knownTexts(program, pool, base) {
       }
       case "buildText": {
         const m = bufferOf(s.buffer);
-        if (mentions4(s.parts, s.buffer)) break;
+        if (mentions5(s.parts, s.buffer)) break;
         const w = writeParts(s.parts);
         if (!w) break;
         const resume = [set(CE, bin("+", V3(m.e), bin(">>>", V3(m.n), k(2)))), set(CO, bin("&", V3(m.n), k(3))), set(CN, V3(m.n)), set(CC, V3(m.c))];
@@ -20851,12 +20973,12 @@ function impure(x) {
   if (o.kind === "call" || o.kind === "pop" || o.kind === "randomInt" || o.kind === "random" || o.kind === "input" || o.kind === "read" || o.kind === "cond") return true;
   return Object.values(o).some((v) => v && typeof v === "object" && impure(v));
 }
-function mentions(x, id) {
-  if (Array.isArray(x)) return x.some((y) => mentions(y, id));
+function mentions2(x, id) {
+  if (Array.isArray(x)) return x.some((y) => mentions2(y, id));
   if (!x || typeof x !== "object") return false;
   const o = x;
   if (o.kind === "var" && o.id === id || o.target === id) return true;
-  return Object.values(o).some((v) => v && typeof v === "object" && mentions(v, id));
+  return Object.values(o).some((v) => v && typeof v === "object" && mentions2(v, id));
 }
 function renamed(x, from, to) {
   if (Array.isArray(x)) return x.map((y) => renamed(y, from, to));
@@ -21401,7 +21523,7 @@ function growingArrays(program, cells = HEAP_CELLS) {
         try {
           const body3 = walk(loop2.body);
           const q = at.get(h.decl.id);
-          if (own2 && q && !mentions(body3, i)) {
+          if (own2 && q && !mentions2(body3, i)) {
             const back2 = temps.has(index) ? [] : [set(index, bin("-", V(q), V(h.p)))];
             return [...beside, { ...loop2, cond: cmp2("<", V(q), V(h.e)), update: moves, body: body3 }, ...back2];
           }
@@ -23439,12 +23561,12 @@ var NOW_DECL = { id: NOW, name: "(frames)", kind: "number", shared: true, routed
 // compiler/recursion.ts
 var framed = (kind) => kind === void 0 || kind === "text" ? "number" : kind;
 var FLAGS3 = new Set(UNIT_FLAGS);
-function mentions2(root, kind) {
-  if (Array.isArray(root)) return root.some((x) => mentions2(x, kind));
+function mentions3(root, kind) {
+  if (Array.isArray(root)) return root.some((x) => mentions3(x, kind));
   if (!root || typeof root !== "object") return false;
   const o = root;
   if (o.kind === kind) return true;
-  return Object.values(o).some((v) => !!v && typeof v === "object" && mentions2(v, kind));
+  return Object.values(o).some((v) => !!v && typeof v === "object" && mentions3(v, kind));
 }
 function cycles(functions2) {
   const ids = new Set(functions2.map((f) => f.id));
@@ -23853,7 +23975,7 @@ function settleRecursion(program) {
         if (s.kind === "call" && s.call.fn === f.id) return true;
         if (s.kind === "if" && s.else && never(s.then) && never(s.else)) return true;
         if (s.kind === "block" && never(s.body)) return true;
-        if (s.kind !== "remark" && (mentions2(s, "return") || mentions2(s, "throw"))) return false;
+        if (s.kind !== "remark" && (mentions3(s, "return") || mentions3(s, "throw"))) return false;
       }
       return false;
     };
@@ -23890,7 +24012,7 @@ function settleRecursion(program) {
 
 // compiler/views.ts
 var GAME_READS = /* @__PURE__ */ new Set(["input", "randomInt", "random", "read", "tableRead", "unitField", "cond", "edge", "running", "unitAlive", "unitFlag", "pick", "pop"]);
-var LISTS = ["body", "then", "else", "update"];
+var LISTS2 = ["body", "then", "else", "update"];
 function rootOf(arrays, id) {
   let a2 = arrays.get(id);
   const seen = /* @__PURE__ */ new Set();
@@ -23989,7 +24111,7 @@ function popsInside(s, arrays, into) {
     }
     const n = o;
     if (n.kind === "pop" && typeof n.array === "string" && !top) into.push(rootOf(arrays, n.array));
-    for (const [k4, v] of Object.entries(n)) if (v && typeof v === "object" && !(top && LISTS.includes(k4))) visit(v, false);
+    for (const [k4, v] of Object.entries(n)) if (v && typeof v === "object" && !(top && LISTS2.includes(k4))) visit(v, false);
   };
   visit(s, true);
 }
@@ -24030,7 +24152,7 @@ function markViewWrites(program, views) {
     }
     const n = o;
     for (const [k4, v] of Object.entries(n)) {
-      if (Array.isArray(v) && LISTS.includes(k4) && v.every(isStmt2)) n[k4] = list(v);
+      if (Array.isArray(v) && LISTS2.includes(k4) && v.every(isStmt2)) n[k4] = list(v);
       else if (k4 === "iterations" || k4 === "branches") n[k4] = v.map((l) => list(l));
       else if (k4 === "cases") for (const c2 of v) c2.body = list(c2.body);
       else if (v && typeof v === "object") walk(v);
@@ -24644,12 +24766,12 @@ var NO_UNIT = { kind: "unitNull" };
 var ORDERS2 = ["move", "patrol", "attack"];
 var LIST_MAKERS = /* @__PURE__ */ new Set(["map", "filter", "sort", "reverse"]);
 var SEARCHES = /* @__PURE__ */ new Set(["some", "every", "find", "findLast", "findIndex", "findLastIndex", "reduce"]);
-function mentions3(root, kind) {
-  if (Array.isArray(root)) return root.some((x) => mentions3(x, kind));
+function mentions4(root, kind) {
+  if (Array.isArray(root)) return root.some((x) => mentions4(x, kind));
   if (!root || typeof root !== "object") return false;
   const o = root;
   if (o.kind === kind) return true;
-  return Object.values(o).some((v) => !!v && typeof v === "object" && mentions3(v, kind));
+  return Object.values(o).some((v) => !!v && typeof v === "object" && mentions4(v, kind));
 }
 function readField(value, name) {
   try {
@@ -26234,7 +26356,7 @@ var Structured = class _Structured {
     for (const fill2 of [...this.errorFills, ...this.keepFills]) fill2();
     for (const { held, cleanup } of this.unwinds) {
       const { at: at2 } = held;
-      if (mentions3(held.body, "throw") || mentions3(held.body, "call")) held.body = [{ kind: "try", body: held.body, catch: [...cleanup, { kind: "throw", rethrow: true, at: at2, label: "(errors)" }], at: at2, label: "(errors)" }];
+      if (mentions4(held.body, "throw") || mentions4(held.body, "call")) held.body = [{ kind: "try", body: held.body, catch: [...cleanup, { kind: "throw", rethrow: true, at: at2, label: "(errors)" }], at: at2, label: "(errors)" }];
     }
     const top = Math.max(ERROR_CODES.TypeError, ...this.errorCodes.values());
     const names = (named) => Array.from({ length: top + 1 }, (_, code) => named(code) ?? "Error");
@@ -35932,8 +36054,8 @@ var Structured = class _Structured {
         this.copyArgsAt = copyArgsAt;
         this.targetTop = top;
       }
-      if (mentions3(fd.body, "sleep") || mentions3(fd.body, "parallel") || mentions3(fd.body, "start")) this.c.error(node, `${name} is kept as a value, and it waits or starts a task: a function called through its number runs to its end in the frame it is called. Call it where it is written instead.`);
-      if (mentions3(fd.body, "edge")) this.c.error(node, `${name} is kept as a value, and rose() / once() remember what they saw at the place they are written: test them where the function is written, and hand it what they found.`);
+      if (mentions4(fd.body, "sleep") || mentions4(fd.body, "parallel") || mentions4(fd.body, "start")) this.c.error(node, `${name} is kept as a value, and it waits or starts a task: a function called through its number runs to its end in the frame it is called. Call it where it is written instead.`);
+      if (mentions4(fd.body, "edge")) this.c.error(node, `${name} is kept as a value, and rose() / once() remember what they saw at the place they are written: test them where the function is written, and hand it what they found.`);
       this.mark(fd, fn.decl);
       this.functions.push(fd);
     }
@@ -36848,9 +36970,9 @@ var Structured = class _Structured {
       this.c.error = error;
     }
     if (caught.length) return `with its parameters as variables of the game it does not compile \u2014 ${caught[0].replace(/\.$/, "")}`;
-    if (mentions3(fn.body, "sleep") || mentions3(fn.body, "parallel")) return "it sleeps, and the program wakes up inside it";
-    if (mentions3(fn.body, "start")) return "it starts a task";
-    if (mentions3(fn.body, "edge")) return "rose() / once() remember what they saw, a call each";
+    if (mentions4(fn.body, "sleep") || mentions4(fn.body, "parallel")) return "it sleeps, and the program wakes up inside it";
+    if (mentions4(fn.body, "start")) return "it starts a task";
+    if (mentions4(fn.body, "edge")) return "rose() / once() remember what they saw, a call each";
     const idle = this.neverAwaits(decl);
     if (idle) {
       fn.body.unshift({ kind: "remark", short: "never awaits", text: `${name} is async but never awaits: it runs to its end in the frame it is called, as a function that is not async would. Take the async away, or await something in it.`, at: this.sourceOfIn(target, idle) });
