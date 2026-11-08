@@ -111,6 +111,10 @@ const DELAY = 7, SLIDE = 2, DROP_EVERY = 2;
 /** The stack is high when it reaches this row of the well, and low again below LOW. */
 const HIGH = 7, LOW = 10;
 const TITLE = 0, PLAYING = 1, OVER = 2;
+/** Full rows flash white this many frames before they go; at the game's end the well fills white, a row every FILL_EVERY. */
+const FLASH = 6, FILL_EVERY = 2;
+/** The screen's colour of the flash and the fill: the O piece's white. */
+const WHITE = 2;
 /** Where the ghost's Overlords are made and taken away: a cell, or the whole well. */
 const GHOST = reserveLocation("blocks: the ghost piece");
 
@@ -140,6 +144,8 @@ program(async () => {
   ));
 
   let piece = 0, next = 0, held = -1, turn = 0, px = 0, py = 0;
+  /** Frames left of a line clear's flash (0: none); the next row of the game-over fill (−1: done), and its clock. */
+  let flashing = 0, fillRow = -1, fillTick = 0;
   /** Whether a piece was held since the last one landed: once a piece. */
   let swapped = false;
   let high = false;
@@ -243,6 +249,8 @@ program(async () => {
     else {
       hud.mode = OVER;
       if (hud.score > hud.best) hud.best = hud.score;
+      fillRow = WELL_H - 1;
+      fillTick = 0;
       band.go(OUTRO);
     }
   }
@@ -259,7 +267,18 @@ program(async () => {
 
   /** The piece stays where it is; full rows go, score and ring. */
   function land() {
-    const n = clearRows();
+    // The rows the piece filled flash white now, scored and rung on the music now; they go when the flash is over.
+    let n = 0;
+    let y = 0;
+    while (y < WELL_H) {
+      let full = true;
+      for (let x = 0; x < WELL_W; x++) if (board[y * WELL_W + x] === 0) full = false;
+      if (full) {
+        n++;
+        for (let x = 0; x < WELL_W; x++) screen.set(WELL_X + x, WELL_Y + y, WHITE);
+      }
+      y++;
+    }
     if (n > 0) {
       hud.lines += n;
       hud.score += POINTS[n] * (hud.level + 1);
@@ -268,12 +287,21 @@ program(async () => {
       hud.level = level;
       if (n === 4) tetris = true;
       else band.sting(n);
+      flashing = FLASH;
+      return;
     }
+    settle();
+  }
+
+  /** After the flash: the full rows go, and the next piece comes in. */
+  function settle() {
+    clearRows();
     const t = top();
     if (t < HIGH) high = true;
     if (t >= LOW) high = false;
     spawn();
   }
+
 
   /** The piece put by for later, the one put by before (or the next) in its place. */
   function hold() {
@@ -382,7 +410,16 @@ program(async () => {
     visualize(eighths >> 3);
 
     if (hud.mode !== PLAYING) {
+      if (hud.mode === OVER && fillRow >= 0) {
+        fillTick++;
+        if (fillTick % FILL_EVERY === 0) {
+          for (let x = 0; x < WELL_W; x++) screen.set(WELL_X + x, WELL_Y + fillRow, WHITE);
+          fillRow--;
+        }
+      }
       if (keyPressed(P1, "Space")) {
+        fillRow = -1;
+        flashing = 0;
         board.fill(0);
         screen.rect(WELL_X, WELL_Y, WELL_W, WELL_H, 0);
         showBox(HOLD_X, HOLD_Y, -1);
@@ -395,6 +432,11 @@ program(async () => {
         spawn();
         fallen = fall;
       }
+    } else if (flashing > 0) {
+      // The flash: nothing moves; then the rows go, and the piece falls from the next eighth on.
+      flashing--;
+      if (flashing === 0) settle();
+      fallen = fall;
     } else {
       // A press moves at once; held, the piece slides after a moment.
       left = keyHeld(P1, "A") ? left + 1 : 0;

@@ -37,7 +37,7 @@ for (const [x, y, w, h] of FRAMES) for (let ty = y * 2; ty < (y + h) * 2; ty++) 
 const scn = createScenario({
   width: W, height: H, era: ERA, tiles, isom: space.isom,
   name: "Korobeiniki",
-  description: "Falling blocks on the minimap, to the Tetris theme (Korobeiniki, a Russian folk song) arranged for TrigScript: the music follows the game. Classic graphics (Options > Graphics) give the sharpest minimap. Host as multiplayer, alone.",
+  description: "Falling blocks on the minimap, and a band that follows the game: Korobeiniki, a Russian folk song, arranged for this map. Made with TrigScript (scmjs.dev). Host as multiplayer, alone, with the game's music off.",
 });
 scn.playerTypes = scn.playerTypes.map((t: number, i: number) => (i === 0 ? 6 : i === 1 ? 5 : i < 8 ? 0 : t));
 scn.editorPlayerTypes = [...scn.playerTypes];
