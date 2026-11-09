@@ -19,7 +19,7 @@
  * written. IMA ADPCM, PCM and Ogg Vorbis play; Ogg Opus does not.
  */
 import { fromBase64, toBase64 } from "./rangeCoder";
-import { chorus, compressor, curve, echo, echoTail, eq, fmVoice, loudness, plate, plateTail, pluckVoice, saturate, seeded, svf, sympathetic, type FilterType, type Points } from "./dsp";
+import { chorus, compressor, curve, duck, echo, echoTail, eq, fmVoice, loudness, plate, plateTail, pluckVoice, saturate, seeded, svf, sympathetic, type FilterType, type Points } from "./dsp";
 
 /** The extension of a sound among a script's files. */
 export const SOUND_EXTENSION = ".sound";
@@ -246,6 +246,7 @@ export interface Clip {
   chorus(options?: { readonly speed?: number; readonly depth?: number; readonly mix?: number }): Clip;
   compress(options?: { readonly threshold?: number; readonly ratio?: number; readonly attack?: number; readonly release?: number; readonly knee?: number; readonly makeup?: number }): Clip;
   loudness(lufs: number): Clip;
+  duck(key: Clip, options?: { readonly depth?: number; readonly threshold?: number; readonly attack?: number; readonly release?: number }): Clip;
   resonance(options: { readonly pedal: readonly (readonly [number, number])[]; readonly amount?: number; readonly decay?: number }): Clip;
 }
 
@@ -595,6 +596,14 @@ function lazyClip(rate: number, frames: number, channels: 1 | 2, compute: () => 
     loudness(target) {
       if (!(num(target, "loudness()") >= -70 && target <= 0)) throw new RangeError(`loudness() is LUFS, −70 to 0 (−16 for music heard on its own, −23 for broadcast), not ${target}.`);
       return same("loudness", [target], (cs) => { const now = clip.lufs; return Number.isFinite(now) ? cs.map((s) => scale(s, 10 ** ((target - now) / 20))) : cs; });
+    },
+    duck(key, options = {}) {
+      if (!isClip(key)) throw new Error("duck() takes the clip it ducks under: pads.duck(lead).");
+      const o = { depth: options.depth ?? 6, threshold: options.threshold ?? -30, attack: options.attack ?? 0.01, release: options.release ?? 0.15 };
+      if (!(num(o.depth, "duck()'s depth") >= 0 && o.depth <= 40)) throw new RangeError(`duck()'s depth is 0 to 40 dB, not ${o.depth}.`);
+      if (!(num(o.threshold, "duck()'s threshold") <= 0 && o.threshold >= -80)) throw new RangeError(`duck()'s threshold is −80 to 0 dB, not ${o.threshold}.`);
+      if (!(num(o.attack, "duck()'s attack") >= 0) || !(num(o.release, "duck()'s release") >= 0)) throw new RangeError("duck()'s attack and release are seconds, 0 or more.");
+      return derive("duck", [key, o], frames, channels, (cs) => duck(cs, channelsAt(key, rate, key.channels), rate, o.depth, o.threshold, o.attack, o.release));
     },
     resonance(options) {
       const pedal = options?.pedal, amount = options?.amount ?? 0.25, decay = options?.decay ?? 3;
