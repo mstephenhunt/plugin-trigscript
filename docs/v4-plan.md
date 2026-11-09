@@ -6897,6 +6897,31 @@ requirement.
 reshaping still reads as Für Elise, the drops' level.
 
 
+#### S7 the showcase on the remix (built 2026-11-09)
+
+The user approved the trance remix, so it is now the showcase's default: `SOUNDTRACK` in
+`probes/lib/fur-elise-showcase-choice.ts` is "remix", and `FUR_ELISE=cinematic` or `FUR_ELISE=straight` still builds the
+others. What a timeline does not say comes from a small `LOOK` per soundtrack there: which section is the storm (the
+remix's "drop 2", as its score names it), which sections are big (the remix's drops and builds), and which roles the
+main screen shows besides the piano (the remix's stabs, role "synth").
+
+**How the remix looks.** Every part with the role "lead" (the piano's right hand and the trance lead that doubles it)
+is gold and drawn on top, on both screens; the left hand is cyan. In the drops and builds the stabs fall on the main
+screen in violet, and the rest of the band (arps, pads, strings, bass) falls on the minimap in violet. The intro, the
+breakdowns and the ending show the piano alone. In the storm the stab chords are red and the white keys flash red on
+each; the white keys also flash red for four frames on each drop's downbeat and each impact of strength 0.9 or more.
+Explosions come from the drops' downbeats and the impacts, strongest first, 4 s apart: five moments, game time 0:16.7
+(drop 1, three Battlecruisers), 0:59.8 (drop 2, the storm, five), 1:16.7 (an impact, Wraiths), 1:44.8 (drop 3, three),
+2:14.8 (an impact, Wraiths). The 2-frame lead of the clip, the half-speed fall and the 16 px spacing are as before.
+The cinematic and straight runs come out exactly as they did (the same changes and moments).
+
+**The map.** 3.79 MB, 154.8 s of sound (one Ogg, 3.5 MB), the end line at 2:26, the tables to 2:39; payload 3.6 MB,
+204,505 changes, at most about 500 units at once. Tuning on the map's own Ogg: 41 pitches, none off. In the lifted
+game every one of its 3,786 frames holds the worked-out picture and no explosion's unit outlives its frame; 0.15 ms a
+frame on average, 0.79 ms at the most (frame 2542, drop 3 with its stabs and the band); `game-check` 825,992 accesses,
+0 ending the game, 0 ignored, 0 never seen. In Maps/TrigScript: `trigscript-fur-elise.scx` (the remix),
+`trigscript-fur-elise-cinematic.scx`, `trigscript-fur-elise-straight.scx`, the check sheet and 24 stills. Not played yet.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
