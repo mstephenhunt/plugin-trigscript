@@ -6615,6 +6615,13 @@ minimap roll is big enough to show in the video or the main screen carries it al
 (Remastered graphics blurs the fog minimap and it has two tones, no hands; the unit board played well for Korobeiniki),
 hallucinations (a unit's hallucinated flag is not its tint) and spells by order (no Cast order from a trigger).
 
+**Played 2026-11-09** (recording StarCraft 2026.11.09 - 05.14.55.15.mp4): the lobby shows the ü; everything draws as
+built. The picture leads the sound by a steady ~95 ms (clicks −88 … −100 ms; the music 85–115 ms in every 3 s window,
+no drift over the 35 s A clip), so the Showcase starts each clip ~2 frames before its picture. A clip a bar (S2) lands
+−40 … +30 ms off the one clip (S1), bar to bar: one clip a section or one for the whole piece, never a clip a bar. No
+Disruption Web in Remastered either. The explosions show on the downbeats.
+
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

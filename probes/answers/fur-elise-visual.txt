@@ -60,3 +60,19 @@ What I measure from the recording (no need to fill in)
 - S2 against S1: the same notes, the same lamp. Each bar of S2 starts on the mixer's 21.3 ms grid on its own, so its
   delay may change by up to 21 ms from bar to bar; S1's should stay the same through the clip.
 - Minimap redraws: how often the roll moves (expected about 12 times a second).
+
+Results (played 2026-11-09, recording StarCraft 2026.11.09 - 05.14.55.15.mp4, 1:57, Remastered graphics)
+---------------------------------------------------------------------------------------------------------
+No comments from the user; measured from the recording (lamp = mean grey of a 160×20 crop at (270,80), 60 fps;
+audio onsets where the game's digital silence ends; music by onset strength against the lamp's flashes).
+1. The lobby shows "Für Elise visual probe" with the ü.
+2–4. The minimap roll and the main screen's Flags draw as built: falling notes, gold/cyan hands, red storm chords.
+6. The picture LEADS the sound by a steady ~95 ms: T's clicks −100, −88, −98, −89, −96 ms (lamp before click);
+   the music 85–115 ms in every 3-second window of A1, A2, C-a, S1, S2 and V1, no trend over the 35 s A clip.
+   (The theme's even sixteenths make the match repeat every ~130 ms; the search was held to 40–170 ms.)
+   The Showcase starts each clip ~2 frames before its picture (or holds the picture 2 frames).
+7. No Disruption Web appeared: Remastered refuses it from a trigger, as 1.16.1 does. The red flashes show.
+8. The explosions (Wraiths, then Battlecruisers) show on the downbeats.
+9. S2 (a clip a bar) against S1 (one clip): each bar lands −40 … +30 ms off S1's place — audible unevenness. One
+   long clip (or a clip a section) is the way; never a clip a bar.
+5, 10: the look and speed are the user's choice.
