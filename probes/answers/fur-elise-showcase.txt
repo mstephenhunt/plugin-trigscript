@@ -1,0 +1,33 @@
+Für Elise, the showcase build: a check play
+===========================================
+
+Map: trigscript-fur-elise.scx (lobby "Für Elise"). About 3 minutes 40 seconds, nothing to press.
+Stills of what it should look like: fur-elise-showcase-frames.png beside the map (the minimap on the left, the main
+screen on the right, as the build works them out — not the game's own drawing).
+
+What to record
+--------------
+- Host it as a multiplayer game, alone. Remastered graphics, no F5.
+- Options: game MUSIC OFF, sound effects ON (the piece plays as a sound effect).
+- Record the whole run, from the lobby to the end text and a few seconds after. Don't move the camera or click.
+
+What is where
+-------------
+- Main screen: a keyboard of Flags, A1 to E7 (40 white keys, the black keys above them). Notes fall onto it, right hand
+  gold, left hand cyan; each key lights in its hand's colour while it sounds.
+- Minimap: the same notes falling onto a keyboard row (white and indigo keys), the orchestra's parts in violet during
+  the storm.
+- The storm (about 2:10 to 2:35): the right hand's chords red, the white keys flash red on each chord, explosions on
+  three downbeats (Wraiths at 2:12 and 2:23, three Battlecruisers on the last big chord at 2:33), with their sounds.
+- Text: "Für Elise" at the start; "Für Elise — Ludwig van Beethoven" when the last note is let go (about 3:25).
+  After that the keyboard stays and the game waits; leave when the sound has rung out.
+
+What to look at
+---------------
+1. Do the notes land on the keys as you hear them (not early, not late)? The clip now starts two frames before the
+   picture, to take up the ~95 ms the probe measured. ->
+2. Does the main-screen keyboard fit in the view, both ends visible (A1 at the far left, E7 at the far right)? ->
+3. Do the first text line and the end line show the ü and the dash (—) properly? ->
+4. The storm: red chords, red flashes, the three explosions: right amount, or too much / too little? ->
+5. The minimap: does the violet orchestra in the storm read well, or is it clutter? ->
+6. Any stray unit, a Flag or Overlord in the wrong place, an error text, a stutter or slowdown? ->

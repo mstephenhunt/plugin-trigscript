@@ -1,33 +1,46 @@
-// Pictures of the Für Elise visualizer probe's frames as the build works them out (probes/lib/fur-elise-run.ts), to
+// Pictures of the Für Elise visualizer probe's frames as the build works them out (probes/lib/fur-elise-run.ts), or the
+// showcase's with --showcase (probes/lib/fur-elise-showcase-run.ts), to
 // look at before a play: the minimap at Remastered's 3 pixels a tile (Space black, the stage's Platform grey, a unit a
 // dot in its owner's colour) beside the main screen's view (852 × 330 game pixels, a Flag a coloured block, the lamp a
 // ring). Not the game's own drawing — the lifted game draws nothing — but its units, where the probe puts them.
 //
-//   npx tsx probes/lib/fur-elise-frames.mts <out folder> [frame …]
+//   npx tsx probes/lib/fur-elise-frames.mts [--showcase] <out folder> [frame …]
 //
 // Writes <out>/frame-NNNN.png for each frame (some of each part when none is named) and <out>/sheet.png of them.
 // Needs a scm-js checkout beside this one (its PNG encoder).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MAP_W, MAP_H, STAGE_TILES, VIEW_X, VIEW_Y } from "./fur-elise-layout.ts";
-import { A_BARS, BAR_AT, C_START, OVERLORD, RING, S1_START, STORM_BARS, TOTAL, pictureAt, plays, CLIP_A, CLIP_THEME } from "./fur-elise-run.ts";
-import { FRAME } from "./note-timeline.ts";
+import { FRAME, type Pixel } from "./note-timeline.ts";
 
 const E = process.env.SCMJS_DIR ?? join(import.meta.dirname, "..", "..", "..", "scm-js");
 const { encodePng } = await import(join(E, "src/formats/png.ts"));
-const [out, ...named] = process.argv.slice(2);
-if (!out) { console.error("usage: fur-elise-frames.mts <out folder> [frame …]"); process.exit(2); }
+const args = process.argv.slice(2);
+const showcase = args.includes("--showcase");
+const [out, ...named] = args.filter((a) => a !== "--showcase");
+if (!out) { console.error("usage: fur-elise-frames.mts [--showcase] <out folder> [frame …]"); process.exit(2); }
 mkdirSync(out, { recursive: true });
 
-/** The colours of P3 … P8 as the map gives them (the probe's probe-players line), by the run's colour numbers 1 … 6. */
-const RGB: readonly (readonly [number, number, number])[] = [[0, 0, 0], [240, 240, 240], [72, 56, 200], [255, 190, 0], [0, 200, 255], [235, 20, 50], [16, 16, 16]];
-const A_START = plays.find((p) => p.clip === CLIP_A)!.frame;
-const V_START = plays.filter((p) => p.clip === CLIP_THEME)[1].frame;
-const at = (start: number, seconds: number) => start + Math.round(seconds / FRAME);
-const frames = named.length ? named.map(Number) : [
-  at(A_START, 3), at(A_START, A_BARS[3]), at(A_START, A_BARS[20]), at(C_START, STORM_BARS[2] + 0.01), at(C_START, STORM_BARS[9]),
-  at(C_START, STORM_BARS[13]), at(S1_START, 6), at(V_START, BAR_AT[4]), at(V_START, BAR_AT[12]),
-].filter((f) => f < TOTAL).sort((a, b) => a - b);
+/** The run to draw: its pictures, its colours (P3 … P8 as its map gives them, by colour number) and frames worth a look. */
+const OVERLORD = 0, RING = 2;
+let pictureAt: (f: number) => readonly Pixel[], RGB: readonly (readonly number[])[], preview: number[], TOTAL: number;
+if (showcase) {
+  const r = await import("./fur-elise-showcase-run.ts");
+  ({ pictureAt, RGB, TOTAL } = r);
+  preview = [...r.PREVIEW_FRAMES];
+} else {
+  const r = await import("./fur-elise-run.ts");
+  ({ pictureAt, TOTAL } = r);
+  RGB = [[0, 0, 0], [240, 240, 240], [72, 56, 200], [255, 190, 0], [0, 200, 255], [235, 20, 50], [16, 16, 16]];
+  const A_START = r.plays.find((p) => p.clip === r.CLIP_A)!.frame;
+  const V_START = r.plays.filter((p) => p.clip === r.CLIP_THEME)[1].frame;
+  const at = (start: number, seconds: number) => start + Math.round(seconds / FRAME);
+  preview = [
+    at(A_START, 3), at(A_START, r.A_BARS[3]), at(A_START, r.A_BARS[20]), at(r.C_START, r.STORM_BARS[2] + 0.01), at(r.C_START, r.STORM_BARS[9]),
+    at(r.C_START, r.STORM_BARS[13]), at(r.S1_START, 6), at(V_START, r.BAR_AT[4]), at(V_START, r.BAR_AT[12]),
+  ];
+}
+const frames = named.length ? named.map(Number) : preview.filter((f) => f < TOTAL).sort((a, b) => a - b);
 
 const T = 3, MW = MAP_W * T, MH = MAP_H * T, VW = 852, VH = 330, GAP = 12;
 const W = MW + GAP + VW, H = Math.max(MH, VH);
