@@ -6684,6 +6684,48 @@ in e67671d). Chosen: a cinematic hybrid — piano, orchestra, big percussion, sy
 **Open:** the user's ears. The final statement is dense (LRA 1.0) — a wall of sound by design, maybe too much; the
 storm's hits are limited hard. Previews: Maps/TrigScript/fur-elise-sound-preview/cinematic/.
 
+#### S7 the synth remix (built 2026-11-09)
+
+The user on the cinematic version: "the background is overshadowing the melody … having it start with the piano and
+going into a louder synth remix would be cool" — trance, 4/4. The diagnosis held: the piano shared its range with the
+ostinatos, the supersaw doubling and the pads, and nothing made room for it. So the melody first, as a measured
+requirement.
+
+- **The form** (`probes/lib/fur-elise-remix-score.ts`; frames at 42 ms): intro 0:00 (0) — the piano alone, bars 1 … 8
+  in 3/8, free, a quiet pad, a noise sweep and a crash reversed into …; drop 1 0:13.1 (312) — 128 a minute, 4/4: the
+  theme reshaped as dance covers do (each 3/8 bar half a bar, the turn's pickup folded in: E D# E D# E B D C), twice,
+  the middle part, the theme again; breakdown 1 0:41.2 (981) — the F major episode's tune on the piano over pads;
+  build 1 0:48.7 (1160) — the E–D# over E, a snare roll, a riser, the suck-in; drop 2 0:56.2 (1338) — the storm: the
+  drumming A as a sixteenth bass, its diminished chords as stabs, its line on the lead; breakdown 2 1:26.2 (2053) — the
+  arpeggios on the piano; build 2 1:33.7 (2231) — the chromatic run, the E–D#; drop 3 1:41.2 (2410) — the theme in
+  full; ending 2:12.4 (3153) — after a breath, bars 19 … 21 and the held A on the piano alone. 2:34.8 with the tail.
+- **The palette:** the trance lead (seven saws, a glide, a dotted-eighth ping-pong) an octave over the piano, which
+  doubles it as written, and a square lead an octave down in drops 2 and 3; plucked arpeggios and supersaw stabs,
+  pads, rolling bass (lowpassed at 700 Hz) and sub, all pumped by the beat; the library's kick, clap, hats and snare;
+  a VSCO crash, violas swelling into the drops, timpani in the storm; impacts, risers, sweeps.
+- **Melody first:** each section mixed as four stems — the melody (lead, its lower octave, piano), the harmony (pads,
+  stabs, arpeggios, strings, the piano's left hand: dipped −5 dB at 1.8 kHz and −3 at 3.5, ducked 6 dB by the melody's
+  own envelope), the effects (crash, impacts, risers, clap, snare, open hats: dipped, ducked 6), the rhythm. The
+  ducking keyed from the whole melody, so a section's tail goes down under the next one's melody too; sweeps and the
+  suck-in high-passed above the melody's range. `scripts/lead-check.mts` (new) measures the melody against the rest in
+  its range bar by bar: every one of 75 bars ≥ 6.9 dB; lowest / median per section — intro 7.7 / 14.1, drop 1 15.5 /
+  18.3, breakdown 1 9.1 / 14.3, build 1 7.9 / 17.7, drop 2 10.3 / 16.2, breakdown 2 10.8 / 14.4, build 2 13.7 / 15.2,
+  drop 3 10.4 / 15.5, ending 6.9 / 16.9. (Before: 17 bars under 6, the worst −11.8 — the suck-in, the tails, the crash.)
+- **Loudness:** each section to its target, the whole limited once (to 0.8): −11.8 LUFS integrated; drops −11.1,
+  −10.8, −11.0 (short-term −10.5 … −11); breakdowns −15, builds −13, intro and ending −20; true peak −1.3 dBTP decoded.
+  The limiter takes at most 3.8 dB (drop 2), after the kick, the timpani and the storm bass's accents came down (5.4
+  before). 3.5 MB at q6.
+- **Library:** `Clip.duck(key)`, `render(…, { parts })`, presets trance / arp / stab, `music.sweep`.
+- **Tuning:** 41 pitches checked, none off; 8 under 80 Hz not judged.
+- **Timeline:** `probes/lib/fur-elise-remix-timeline.ts` — the three performances put together: PARTS, ROLES ("lead"
+  for the piano's right hand and the lead synth, "lead-synth" its lower octave, "accomp" the left hand, "arp", "synth",
+  "pad", "strings", "bass", drums, "cymbal", "impact", "riser"), SECTIONS with a kind (intro, drop, breakdown, build,
+  ending), DROPS, HITS (drops' downbeats at strength 1), BARS (3/8 bars, then 4/4, then 3/8: BEAT is in each one's own
+  beats). `probes/lib/fur-elise-remix.ts` renders, `probes/fur-elise-remix.ts` plays (M and R the stems).
+
+**Open:** the user's ears: whether the lead is too far on top now (medians 15 … 18 dB in the drops), whether the 4/4
+reshaping still reads as Für Elise, the drops' level.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
