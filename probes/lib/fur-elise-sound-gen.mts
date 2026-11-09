@@ -4,7 +4,8 @@
 //   salamander-grand-v3/   Salamander Grand Piano V3, 44.1 kHz 16-bit (Alexander Holm, CC BY 3.0), from
 //                          freepats.zenvoid.org: SalamanderGrandPianoV3+20161209_44khz16bit.tar.xz, unpacked into extracted/
 //   vsco2-ce/              VSCO 2 Community Edition (Versilian Studios, CC0), from github.com/sgossner/VSCO-2-CE: the
-//                          string sections' sustains and spiccati, tenor trombone, tuba, horn, timpani
+//                          string sections' sustains and spiccati, tenor trombone, tuba, horn, timpani; for the
+//                          cinematic arrangement its percussion too (bass drums, tenor drums, snare, cymbals, gong)
 //
 // and one .sound: the piano's middle C at one strength, imported the old way (22 050 Hz, one channel, IMA ADPCM), for
 // the probe's first item. Everything lands in probes/ (ignored by git).
@@ -39,6 +40,9 @@ vsco("Brass/F Horn/sus", "vsco-horns", "French horn (VSCO 2 CE)", "--octave", "1
 // fifth above it beside it in every drum).
 vsco("Percussion/Timpani", "vsco-timpani", "Timpani (VSCO 2 CE)", "--pitch", "Timpani1=41.45,Timpani2=46.75,Timpani3=49.5,Timpani4=52.45,Timpani5=54.6", "--seconds", "6", "--release", "2");
 vsco("Percussion/Timpani/Rolls", "vsco-timpani-rolls", "Timpani rolls (VSCO 2 CE)", "--pitch", "Timpani1=42,Timpani2=47,Timpani3=49.5,Timpani4=52.5,Timpani5=55", "--seconds", "12", "--release", "1");
+
+// The cinematic arrangement's percussion: a kit, a key a drum (probes/lib/vsco-percussion.kit.json).
+make("--kit", join(import.meta.dirname, "vsco-percussion.kit.json"), join(out, "vsco-percussion.samples"), "--name", "Percussion (VSCO 2 CE)", "--credit", VSCO, "--seconds", "12");
 
 // Middle C, one strength (the 10th of 16), as Import Video… would have made it: one channel, 22 050 Hz, the first 8 s.
 const wav = readFileSync(join(SAL, "44.1khz16bit", "C4v10.wav"));

@@ -2,7 +2,8 @@
  * Whether a render is in tune, note by note: for each pitch a timeline says is struck, the frequency of its
  * fundamental and its second harmonic just after each onset (an FFT over up to 0.2 s, the peak within a semitone of
  * where it should be, refined by a parabola), the median over every time it is struck, in cents against equal
- * temperament at A4 = 440 — judged by the fundamental, or under 200 Hz by the second harmonic. A pitch more than 25 cents off is flagged — above C6 a piano is tuned wider (its octaves
+ * temperament at A4 = 440 — judged by the fundamental, or under 200 Hz by the second harmonic, and called off only when
+ * both readings say so. Under 80 Hz nothing is judged. A pitch more than 25 cents off is flagged — above C6 a piano is tuned wider (its octaves
  * stretched), so there it may be sharp by 1.5 cents a semitone more.
  *
  *   npx tsx scripts/tuning-check.mts <render.ogg|wav> <timeline.ts> [--offset=seconds] [--parts=0,1] [--all]
@@ -74,7 +75,7 @@ for (const n of mod.NOTES) {
   per.set(pitch, out);
 }
 const median = (xs: number[]) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
-let off = 0, checked = 0;
+let off = 0, checked = 0, low80 = 0;
 for (const p of [...per.keys()].sort((a, b) => a - b)) {
   const v = per.get(p)!, c = median(v.c), c2 = median(v.c2), n = Math.max(v.c.length, v.c2.length);
   // The value to judge: the fundamental — but under 200 Hz the second harmonic, since 0.2 s cannot place a low
@@ -82,12 +83,15 @@ for (const p of [...per.keys()].sort((a, b) => a - b)) {
   const low = 440 * 2 ** ((p - 69) / 12) < 200;
   const cents = low && Number.isFinite(c2) ? c2 : Number.isFinite(c) ? c : c2;
   if (!Number.isFinite(cents)) continue;
+  // Under 80 Hz only the second harmonic is read, and 0.2 s cannot place it in a dense mix (a sine sub has none).
+  if (440 * 2 ** ((p - 69) / 12) < 80) { low80++; continue; }
   checked++;
-  // Off when the judged value is, and the other one (where there is one) agrees: a wrong note moves both.
+  // Off when the judged value is, and the other one (where there is one) agrees: a wrong note moves both, where a
+  // neighbour in the same chord (C#5 beside D5) moves one reading only.
   const stretch = Math.max(0, p - 84) * 1.5, outside = (v: number) => v > LIMIT + stretch || v < -LIMIT;
-  const other = cents === c ? c2 : c, bad = outside(cents) && (!Number.isFinite(other) || outside(other) || !low);
+  const other = cents === c ? c2 : c, bad = outside(cents) && (!Number.isFinite(other) || outside(other));
   if (bad) off++;
   if (bad || args.includes("--all")) console.log(`${bad ? "OFF " : "    "}${name(p).padEnd(4)} ${String(p).padEnd(3)} ×${String(n).padEnd(4)} fundamental ${Number.isFinite(c) ? c.toFixed(0).padStart(4) : "   –"} cents, 2nd harmonic ${Number.isFinite(c2) ? c2.toFixed(0).padStart(4) : "   –"}`);
 }
-console.log(`${checked} pitches checked, ${off} off by more than ${LIMIT} cents (above C6, ${LIMIT} plus 1.5 a semitone sharp allowed).`);
+console.log(`${checked} pitches checked, ${off} off by more than ${LIMIT} cents (above C6, ${LIMIT} plus 1.5 a semitone sharp allowed)${low80 ? `; ${low80} under 80 Hz not judged` : ""}.`);
 process.exitCode = off ? 1 : 0;

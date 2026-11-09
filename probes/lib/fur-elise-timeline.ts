@@ -5,8 +5,13 @@
 
 /** Seconds from the first note to the last let go (the held A's ring and the hall's tail come after). */
 export const SECONDS = 198.988;
-/** The parts, by the number NOTES gives them: the hands, then the orchestra's parts (only in the storm). */
+/** The parts, by the number NOTES gives them. */
 export const PARTS = ["right","left","violins","violas","celli","basses","horns","trombones","tuba","timpani","roll"] as const;
+/**
+ * Each part's role, by the same number: "lead" (the piano's right hand, the theme), "accomp" (its left hand),
+ * "strings", "bass", "brass", "drum-low" (the timpani).
+ */
+export const ROLES = ["lead","accomp","strings","strings","strings","bass","brass","brass","brass","drum-low","drum-low"] as const;
 /** The sections, in order: the bar each begins on (BARS' numbering), and where, in seconds and frames. */
 export const SECTIONS: readonly { readonly name: string; readonly bar: number; readonly at: number; readonly frame: number }[] = [{"name":"A","bar":0,"at":0,"frame":0},{"name":"B","bar":44,"at":67.761,"frame":1613},{"name":"A again","bar":60,"at":94.434,"frame":2248},{"name":"storm","bar":81,"at":127.133,"frame":3027},{"name":"closing","bar":99,"at":152.906,"frame":3641}];
 /** Seconds each bar begins: [0] the pickup's start, [k] bar k's. */
@@ -84,8 +89,9 @@ export const PEDAL: readonly (readonly [number, number])[] = [
 export const AT = 0, END = 1, PITCH = 2, VELOCITY = 3, PART = 4, VOICE = 5, BAR = 6, BEAT = 7, FRAME = 8;
 /**
  * Every note in the order struck: [at, end, pitch, velocity, part, voice, bar, beat, frame] — seconds struck and let go
- * (the key; the pedal may hold it on), the key (60 is C4), 1 … 127, PARTS' number, its place in its chord (0 the lowest),
- * the bar, the beat in it (eighths from 0), the frame it is struck on.
+ * (the key; the pedal may hold it on), the key (60 is C4; for a drum, cymbal, impact or riser the kit's key, not a
+ * pitch), 1 … 127, PARTS' number, its place in its chord (0 the lowest), the bar, the beat in it (eighths from 0), the
+ * frame it is struck on.
  */
 export const NOTES: readonly (readonly number[])[] = [
   [0,0.264,76,45,0,0,0,0,0],
@@ -1428,4 +1434,14 @@ export const NOTES: readonly (readonly number[])[] = [
   [196.405,198.98,69,27,0,0,125,0,4676],
   [196.414,198.988,45,22,1,1,125,0,4677],
   [196.423,198.988,33,29,1,0,125,0,4677],
+];
+/**
+ * The big hits, for flashes: [at, frame, strength, part] — every impact, and the low drums' and cymbals' strokes struck
+ * at velocity 110 or more (the kick left out: it is on every pulse); strength 0 … 1 (velocity / 127).
+ */
+export const HIT_AT = 0, HIT_FRAME = 1, HIT_STRENGTH = 2, HIT_PART = 3;
+export const HITS: readonly (readonly number[])[] = [
+  [139.362,3318,0.98,9],
+  [140.706,3350,0.9,9],
+  [148.933,3546,0.91,9],
 ];
