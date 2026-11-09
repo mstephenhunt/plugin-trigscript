@@ -33,7 +33,17 @@ const CURRENT = epd(0x6509b0);
 const MRGN = epd(0x58dc60);
 /** units.dat: hit points (a dword a type, 256 to a point), shields (a word a type), the group flags (a byte a type). */
 const MAX_HP = epd(0x662350), MAX_SHIELDS = epd(0x660e00), GROUPS = epd(0x6637a0);
-/** The group bits Men, Buildings and Factories go by (a trigger's unit classes 230, 231, 232). */
+/**
+ * A filter's type that is one type, asked of a unit's type word (16 bits): the game's 0–227, and a data set's past the
+ * classes (a mod's units from 233 on). 228 is the game's None and 229–232 the trigger's classes.
+ */
+const exactType = (type: number) => type < 228 || type > 232;
+
+/**
+ * The group bits Men, Buildings and Factories go by (a trigger's unit classes 230, 231, 232). They are read from
+ * units.dat's group flags where 1.16.1 keeps them (`GROUPS`), a table of the game's 228 types: a unit of a type past it
+ * (a mod's) is looked up past the table's end, so a class says nothing sure of it.
+ */
 const GROUP_BITS: Record<number, number> = { 230: 0x08, 231: 0x10, 232: 0x20 };
 /** The most statements a loop's body over units may have to be written twice, for two places a turn. */
 const UNROLL_MOST = 16;
@@ -367,7 +377,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
    */
   const scan = (filter: UnitFilter, pre: Stmt[], body: (q: NumExpr, stop: () => Stmt[]) => Stmt[]): Stmt[] => {
     const type = filter.type;
-    if (type !== undefined && type >= 228 && GROUP_BITS[type] === undefined) throw new Leave();
+    if (type !== undefined && !exactType(type) && GROUP_BITS[type] === undefined) throw new Leave();
     const n = made++;
     const Q = `@u.q${n}`, LIM = `@u.lo${n}`, SKIP = `@u.skip${n}`;
     const q = ranged(V(Q), UNIT_TABLE - STRIDE, UNIT_TABLE + STRIDE * (PLACES - 1));
@@ -379,7 +389,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     const asks = (q: NumExpr): BoolExpr[] => {
       const out: BoolExpr[] = [cmp(">=", peek(of(q, SPRITE)), k(1))];
       if (who) out.push(cmp("==", read(q, OWNER), who));
-      if (type !== undefined && type < 228) out.push(cmp("==", read(q, TYPE), k(type)));
+      if (type !== undefined && exactType(type)) out.push(cmp("==", read(q, TYPE), k(type)));
       if (box) {
         const [l, t, r, b] = box;
         const xy = (u: NumExpr, mask: number) => peek(of(u, POSITION), mask);
@@ -397,7 +407,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
       }
       // (The input's carriers, hidden units with a human's owner byte, are no script's: a unit the filter lets through
       // is asked its type once more, unless the filter asks for one type already.)
-      if (carrier !== undefined && (type === undefined || type >= 228)) inner = when(cmp("!=", read(q, TYPE), k(carrier)), inner);
+      if (carrier !== undefined && (type === undefined || !exactType(type))) inner = when(cmp("!=", read(q, TYPE), k(carrier)), inner);
       // (With a filter the order is asked only of the units it lets through: a place the walk passes costs a condition
       // less, and every condition is a dword the walk's step moves on.)
       const ask = [...also, ...asks(q)];
@@ -456,7 +466,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     const count = { created: MADE_N, died: GONE_N, killed: GONE_N, ordered: TURNED_N, morphed: CHANGED_N }[source];
     const was = source === "ordered" ? TURNED_WAS : source === "morphed" ? CHANGED_WAS : undefined;
     const type = s.filter.type;
-    if (type !== undefined && type >= 228 && GROUP_BITS[type] === undefined) throw new Leave();
+    if (type !== undefined && !exactType(type) && GROUP_BITS[type] === undefined) throw new Leave();
     const pre: Stmt[] = [];
     const I = fresh("ei"), E = fresh("ee");
     const e = V(E);
@@ -470,7 +480,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     if (by) asks.push(cmp("==", read(e, LAST_ATTACKER), by));
     if (s.event?.order !== undefined) asks.push(cmp("==", bits(e, ORDER), k(s.event.order * 256)));
     if (who) asks.push(cmp("==", read(e, OWNER), who));
-    if (type !== undefined && type < 228) asks.push(cmp("==", read(e, TYPE), k(type)));
+    if (type !== undefined && exactType(type)) asks.push(cmp("==", read(e, TYPE), k(type)));
     if (box) {
       const [l, t, r, b] = box;
       const xy = (mask: number) => peek(of(e, POSITION), mask);

@@ -123,6 +123,8 @@ export interface StructuredContext {
   refs?: ReadonlySet<TS.ClassDeclaration>;
   /** Every class declared in the script's files, top-level or not: what a type may be an instance of. */
   classes?: readonly TS.ClassDeclaration[];
+  /** How many unit type ids an event's filter may name below (`ScriptNames.unitTypes`); 65,536 when not said. */
+  unitTypes?: number;
 }
 
 /** A hoisted expression threw when it was evaluated: reported at the expression, as the script's own error. */
@@ -8300,7 +8302,7 @@ export class Structured {
             if (dead) {
               // What it was and where, taken as it died; what the filter says for certain is known when the script is built.
               const fields = new Map<string, Binding>();
-              const sure: Record<string, number | undefined> = { type: units.type !== undefined && units.type < 228 ? units.type : undefined, owner: units.owner !== undefined && units.owner !== CURRENT_PLAYER ? units.owner : undefined };
+              const sure: Record<string, number | undefined> = { type: units.type !== undefined && (units.type < 228 || units.type > 232) ? units.type : undefined, owner: units.owner !== undefined && units.owner !== CURRENT_PLAYER ? units.owner : undefined };
               // Only what the handler reads is read from the dead unit: each field is a read of the game.
               const wanted = this.fieldsRead(fn, 0);
               for (const f of ["type", "owner", "x", "y"] as const) {
@@ -8440,7 +8442,9 @@ export class Structured {
       }
     } else return fail();
     if (out.type === 229) delete out.type;
-    if (out.type !== undefined && (out.type < 0 || out.type > 232)) return fail();
+    const types = this.c.unitTypes ?? 0x10000;
+    if (out.type !== undefined && out.type >= types) { this.c.error(arg, `${named}: there is no unit type ${out.type}: they go from 0 to ${types - 1}.`); return null; }
+    if (out.type !== undefined && out.type < 0) return fail();
     if (out.owner !== undefined && (out.owner < 0 || (out.owner > 11 && out.owner !== CURRENT_PLAYER))) { this.c.error(arg, `${named}'s owner is one player: P1 … P12, or CurrentPlayer.`); return null; }
     if (out.at !== undefined && (out.at === 0 || out.at === 64)) delete out.at;
     if (out.at !== undefined && (out.at < 0 || out.at > 255)) return fail();

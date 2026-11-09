@@ -227,7 +227,7 @@ export class World {
   }
 
   private typed(u: SimUnit, type: number | undefined): boolean {
-    return type === undefined || (type >= 229 ? this.classOf(u.type, type) : u.type === type);
+    return type === undefined || (type >= 229 && type <= 232 ? this.classOf(u.type, type) : u.type === type);
   }
 
   private inside(u: SimUnit, location: number | undefined): boolean {
@@ -268,7 +268,7 @@ export class World {
   /** The kills these players have of a type or a class. */
   kills(owners: readonly number[], type: number): number {
     let n = 0;
-    for (const [key, count] of this.killed) if (owners.includes(key % 4096) && (type >= 229 ? this.classOf(Math.floor(key / 4096), type) : Math.floor(key / 4096) === type)) n += count;
+    for (const [key, count] of this.killed) if (owners.includes(key % 4096) && (type >= 229 && type <= 232 ? this.classOf(Math.floor(key / 4096), type) : Math.floor(key / 4096) === type)) n += count;
     return n;
   }
 

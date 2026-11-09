@@ -1030,6 +1030,14 @@ function playerAliases(kw: string, names: ScriptNames): string {
   return lines.join("\n");
 }
 
+/** The compact declarations' word on the names left out: the game's (`units["Terran Marine"]`), or a data set's first. */
+function unitNameNote(names: ScriptNames): string {
+  const named = names.units.entries.find((e) => e.keys.length > 1 && !identifierKey(e.keys[1]))?.keys[1];
+  return named === "Terran Marine" || !named
+    ? `Every unit is also indexable by its StarEdit name: ${names.units.object}["Terran Marine"].`
+    : `Every unit is also indexable by its name: ${names.units.object}[${JSON.stringify(named)}].`;
+}
+
 function tables(kw: string, names: ScriptNames, compact: boolean): string {
   if (!compact) {
     return allTables(names).map((t) => tableDecl(kw, t)).join("\n");
@@ -1037,7 +1045,7 @@ function tables(kw: string, names: ScriptNames, compact: boolean): string {
   const isDefaultSwitch = (k: string) => /^Switch ?(\d+)$/.test(k);
   return [
     tableDecl(kw, names.players),
-    tableDecl(kw, names.units, (k) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k), `Every unit is also indexable by its StarEdit name: ${names.units.object}["Terran Marine"].`),
+    tableDecl(kw, names.units, (k) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k), unitNameNote(names)),
     tableDecl(kw, names.locations),
     tableDecl(kw, names.switches, (k) => { const m = /^Switch(\d+)$/.exec(k); return m ? Number(m[1]) <= 16 : !isDefaultSwitch(k); }, "Switch1 … Switch256 exist; the first sixteen are listed. A switch given a name in the map is listed by that name."),
     `/** AI scripts, by StarEdit name ("Terran Custom Level") or four-character code. */\n${kw}const ${names.aiScripts.object}: { readonly [name: string]: AiScript<number> };`,
