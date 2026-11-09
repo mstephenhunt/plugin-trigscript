@@ -1,6 +1,6 @@
 /**
  * The Für Elise showcase's run (probes/lib/fur-elise-showcase-run.ts), on each soundtrack the switch picks
- * (probes/lib/fur-elise-showcase-choice.ts: the cinematic arrangement, the straight piece): the keyboards hold every
+ * (probes/lib/fur-elise-showcase-choice.ts: the trance remix, the cinematic arrangement, the straight piece): the keyboards hold every
  * note (folded by octaves where they must), the parts and sections are found by their roles and names, the explosions
  * land on the strongest moments, the picture never asks the game for two Flags it would not make, and the changes the
  * program plays back rebuild every frame's picture.
@@ -12,7 +12,7 @@ import { CELL, VIEW_X, VIEW_Y } from "../probes/lib/fur-elise-layout";
 type Run = typeof import("../probes/lib/fur-elise-showcase-run");
 type Choice = typeof import("../probes/lib/fur-elise-showcase-choice");
 
-describe.each(["cinematic", "straight"] as const)("the showcase's run on the %s soundtrack", (which) => {
+describe.each(["remix", "cinematic", "straight"] as const)("the showcase's run on the %s soundtrack", (which) => {
   let r: Run, c: Choice;
   beforeAll(async () => {
     process.env.FUR_ELISE = which;
@@ -34,16 +34,17 @@ describe.each(["cinematic", "straight"] as const)("the showcase's run on the %s 
 
   it("puts the piano on the keyboards by role, and no drum, impact or riser on a roll", () => {
     const { ROLES } = c.TIMELINE;
-    expect([ROLES[r.LEAD_PART], ROLES[r.OTHER_PART]]).toEqual(["lead", "accomp"]);
-    expect(r.piano.every((n) => n.part === r.LEAD_PART || n.part === r.OTHER_PART)).toBe(true);
+    expect(r.LEAD_PARTS.every((k) => ROLES[k] === "lead") && r.OTHER_PARTS.every((k) => ROLES[k] === "accomp")).toBe(true);
+    expect(r.LEAD_PARTS.length).toBe(which === "remix" ? 2 : 1);
+    expect(r.piano.every((n) => r.LEAD_PARTS.includes(n.part) || r.OTHER_PARTS.includes(n.part))).toBe(true);
     expect(r.notes.every((n) => !["drum-low", "drum-high", "cymbal", "impact", "riser"].includes(ROLES[n.part]))).toBe(true);
-    expect(r.LOUD).toEqual(["storm"]);
+    expect(r.LOUD).toEqual([which === "remix" ? "drop 2" : "storm"]);
   });
 
-  it("shows the rest of the band only in the big sections: the intro and the ending are the piano alone", () => {
+  it("shows the rest of the band only in the big sections: the intro, breakdowns and ending are the piano alone", () => {
     const { SECTIONS } = c.TIMELINE;
-    expect(r.BIG).toEqual(which === "cinematic" ? ["storm", "final"] : ["storm"]);
-    const band = r.notes.filter((n) => n.part !== r.LEAD_PART && n.part !== r.OTHER_PART);
+    expect(r.BIG).toEqual(which === "remix" ? ["drop 1", "build 1", "drop 2", "build 2", "drop 3"] : which === "cinematic" ? ["storm", "final"] : ["storm"]);
+    const band = r.notes.filter((n) => !r.LEAD_PARTS.includes(n.part) && !r.OTHER_PARTS.includes(n.part));
     expect(band.length).toBeGreaterThan(0);
     for (const n of band) {
       const s = [...SECTIONS].reverse().find((x) => x.bar <= n.bar)!;
@@ -65,7 +66,14 @@ describe.each(["cinematic", "straight"] as const)("the showcase's run on the %s 
   it("explodes on a handful of the strongest moments, Battlecruisers on the strongest", () => {
     const { SECTIONS } = c.TIMELINE;
     const section = (f: number) => [...SECTIONS].reverse().find((s) => s.frame <= f - r.ZERO)!.name;
-    if (which === "cinematic") {
+    if (which === "remix") {
+      // The three drops' downbeats (the storm's, the second, the biggest: five Battlecruisers), two impacts between.
+      const drops = c.TIMELINE.SECTIONS.filter((s) => s.name.startsWith("drop")).map((s) => r.ZERO + s.frame);
+      expect(r.BOOMS.length).toBe(5);
+      for (const d of drops) expect(r.BOOMS.some((b) => b.frame === d && b.strength === 1)).toBe(true);
+      expect(r.explosions.filter((e) => e.frame === drops[1] && e.kind === 2).length).toBe(5);
+      expect(r.explosions.filter((e) => e.frame === drops[0] && e.kind === 2).length).toBe(3);
+    } else if (which === "cinematic") {
       // The band's first downbeat, three in the storm, the final's first downbeat and two of its last big bars.
       expect(r.BOOMS.map((b) => section(b.frame))).toEqual(["band", "storm", "storm", "storm", "final", "final", "final"]);
       expect(r.BOOMS[0].frame).toBe(r.ZERO + SECTIONS.find((s) => s.name === "band")!.frame);
@@ -78,12 +86,13 @@ describe.each(["cinematic", "straight"] as const)("the showcase's run on the %s 
     for (const b of r.BOOMS) expect(r.explosions.filter((e) => e.frame === b.frame).every((e) => e.kind === (b.strength >= 0.995 ? 2 : 1))).toBe(true);
   });
 
-  it("flashes the white keys red only in the storm, and pulses the minimap's keys only in the big sections", () => {
+  it("flashes the white keys red in the storm (and the remix's drops and impacts), and pulses the minimap's keys only in the big sections", () => {
     const { SECTIONS } = c.TIMELINE;
     const at = (name: string) => r.ZERO + SECTIONS.find((s) => s.name === name)!.frame;
     const after = (name: string) => { const k = SECTIONS.findIndex((s) => s.name === name); return r.ZERO + (SECTIONS[k + 1]?.frame ?? Infinity); };
     expect(r.flashes.size).toBeGreaterThan(20);
-    for (const f of r.flashes) expect(f >= at("storm") && f < after("storm") + 2).toBe(true);
+    for (const f of r.flashes) expect(r.BIG.some((name) => f >= at(name) && f < after(name) + 4)).toBe(true);
+    if (which !== "remix") for (const f of r.flashes) expect(f >= at(r.LOUD[0]) && f < after(r.LOUD[0]) + 2).toBe(true);
     for (const f of r.pulses) expect(r.BIG.some((name) => f >= at(name) && f < after(name) + 3)).toBe(true);
   });
 

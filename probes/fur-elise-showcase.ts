@@ -1,9 +1,9 @@
-// Für Elise, TrigScript Showcase #3: the whole piece as one clip — the cinematic arrangement (probes/lib/
-// fur-elise-cinematic.ts) or the straight piece (probes/lib/fur-elise-soundtrack.ts), as probes/lib/
-// fur-elise-showcase-choice.ts says (FUR_ELISE=straight when built under Node) — drawn as it plays: notes falling onto a
-// keyboard on the minimap (Overlords over Space; the rest of the band in violet in the big sections) and on the main
-// screen (Flag-looking Spider Mines, a row every other frame), right hand gold, left hand cyan, the storm's chords red
-// with the white keys flashing red on each, explosions on the strongest moments.
+// Für Elise, TrigScript Showcase #3: the whole piece as one clip — the trance remix (probes/lib/fur-elise-remix.ts),
+// the cinematic arrangement (probes/lib/fur-elise-cinematic.ts) or the straight piece (probes/lib/fur-elise-soundtrack.ts),
+// as probes/lib/fur-elise-showcase-choice.ts says (FUR_ELISE=cinematic or straight when built under Node) — drawn as it
+// plays: notes falling onto a keyboard on the minimap (Overlords over Space; the rest of the band in violet in the big
+// sections) and on the main screen (Flag-looking Spider Mines, a row every other frame), the melody gold on top, the
+// left hand cyan, the storm's chords red with the white keys flashing red on each, explosions on the biggest moments.
 //
 // Every frame's picture is worked out when the script is built (probes/lib/fur-elise-showcase-run.ts, from the
 // chosen soundtrack's timeline, made by probes/lib/fur-elise-timeline-gen.mts; the run takes its parts, sections, range
@@ -14,7 +14,8 @@
 // probes/answers/fur-elise-showcase.txt.
 //
 //   MAP_NAME="Für Elise" MAP_DESCRIPTION="…" npx tsx probes/lib/fur-elise-map.mts fixtures/eud/fur-elise-showcase-base.scx   (the description: below)
-//   MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase.scx fixtures/eud/fur-elise-showcase-base.scx
+//   MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-remix.scx fixtures/eud/fur-elise-showcase-base.scx
+//   FUR_ELISE=cinematic MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-cinematic.scx fixtures/eud/fur-elise-showcase-base.scx
 //   FUR_ELISE=straight MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-straight.scx fixtures/eud/fur-elise-showcase-base.scx
 //   SCM_SIM_DIR=~/github/scm-sim-eud npx tsx scripts/test-game.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-base.scx
 //
@@ -27,12 +28,13 @@
 import { program, nextFrame, print, playWav, centerView, centerLocation, reserveLocation, createUnit, removeUnitAt, killUnitAt, giveUnits, setMemory, units, P3, P4, P5, P6, P7, P8, test, expect } from "trigscript";
 import { whole as straightWhole } from "./lib/fur-elise-soundtrack";
 import { whole as cinematicWhole } from "./lib/fur-elise-cinematic";
+import { whole as remixWhole } from "./lib/fur-elise-remix";
 import { SOUNDTRACK } from "./lib/fur-elise-showcase-choice";
 import { CAM_X, CAM_Y, CELL } from "./lib/fur-elise-layout";
 import { START, TOTAL, LAST_OFF, STARTS, CX, CY, CKIND, CTO, LABEL_F, LABEL_TEXT, FX_F, FX_K, FX_X, FX_Y, OVERLORD, pictureAt, explosions } from "./lib/fur-elise-showcase-run";
 
 /** The piece, one clip: the soundtrack the switch picks (only the clip played goes in the map). */
-const WHOLE = SOUNDTRACK === "straight" ? straightWhole : cinematicWhole;
+const WHOLE = SOUNDTRACK === "straight" ? straightWhole : SOUNDTRACK === "cinematic" ? cinematicWhole : remixWhole;
 
 /** units.dat's flingy bytes of types 12 … 15 (Battlecruiser, Spider Mine, Nuclear Missile, Civilian), one dword. */
 const LOOKS = 0x664504;
