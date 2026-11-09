@@ -6604,6 +6604,45 @@ the game's text shows the ü. The sheet's choices were not answered one by one, 
 the storm only, a smaller room for the first A and the hall for the last, −17 / −15 LUFS, all 16 piano layers.
 
 
+#### S7 the full soundtrack (built 2026-11-09)
+
+After the sound probe ("sounds great") and the visualizer probe (one long clip keeps time with the game, a steady
+~95 ms; a clip a bar wanders −40 … +30 ms): the whole piece is one Ogg, the sections with their tails only a fallback.
+
+- **The notes** (`probes/lib/fur-elise-score.ts`, from the same 1888 Breitkopf scan, every repeat taken): the A
+  section (pickup, 1 … 7 and the first ending, 1 … 7 and the second, the middle part 9 … 21 with its first ending, and
+  again), the F major episode B0 … B15 (B0 the second ending's C7; the tune with its grace notes as sixty-fourths; the
+  thirty-second passage twice, the second as an echo; the E–D# back), the theme again, the bar of drumming A and the
+  storm C1 … C17, the arpeggios in sixteenth triplets P1 … P3 (P3 an octave up, the score's 8va) and the chromatic
+  run P4 … P5, the theme a last time and the held A. Read against the scan: bars 12 … 14 — the left hand ends bar 12
+  on E4 and starts bar 13 on E5 (slurred, not tied: the probe had it tied), the right hand's E5 E6 between; bar 14's
+  E5 an eighth on page 1 and the last A, a sixteenth on page 2 (each as printed).
+- **Unsure, chosen by harmony:** B12's left-hand chord (read G#3+B3; two sharps printed, one placed oddly), B6's
+  left hand (E3 A3 C4 A3, then D3+D4, F3), B8/B10's three sixteenth chords (F4+G4, E4+G4, D4+F4+G4), the left hand's
+  A minor chord under the arpeggios (A3+C4+E4), and as before C6 and C16.
+- **Played** as item 3 was, extended: the theme's tempo shape every time (a little calmer on its repeat and its last
+  time), the episode lyrical and slowing into the theme, the storm as item 4, the arpeggios flowing, the last bars
+  slowing to the A held in the pedal (the score lets it go short). The pedal as printed, plus the last A's.
+- **The arc:** sections rendered apart with `music.excerpt` — A, B and the theme again in the smaller room (plate 0.7),
+  the storm and the closing in the hall (0.84) — and added up at their times, each tail under what follows, so the room
+  changes where the storm comes in without a seam. The piano's sections share one gain (`together(…, { lufs: −17 })`,
+  kept as loud against one another as played); the storm at −15 alone; the whole limited once.
+- **Output** (`probes/fur-elise.ts`; previews in Maps/TrigScript/fur-elise-sound-preview/full/): the whole piece
+  3:33.4 (the music 3:19, then the held A's ring and the hall), −16.7 LUFS, true peak −1.3 dBTP decoded, 4.2 MB at
+  quality 6; sections A 0:00 (frame 0) 76.1 s −17.4, B 1:07.8 (1,613) 33.1 s −16.8, the theme again 1:34.4 (2,248)
+  41.1 s −16.2, the storm 2:07.1 (3,027) 35.6 s −15.1, the closing 2:32.9 (3,641) 60.5 s −17.3. A build 34 s.
+- **The timeline** for the picture: `probes/lib/fur-elise-timeline.ts`, written by
+  `probes/lib/fur-elise-timeline-gen.mts` from the soundtrack's own build — 1,340 notes `[at, end, pitch, velocity,
+  part, voice, bar, beat, frame]` (parts: right, left, then the orchestra's), the sections with their frames, the bars,
+  the pedal. A program imports it as data, no samples needed.
+- **Library:** `music.excerpt(performance, from, to)` (a pedal down before an excerpt is down already there, without
+  its sound twice); `together(parts, { lufs })`.
+- The piano's `.samples` now spans keys 28 … 101 (557 recordings, 137 MB): P3 reaches E7.
+
+**Open:** the user's ears on the whole. The storm's short-term loudness (−13 … −16) is barely over the theme's loudest
+bars (−13.7): at the probe's −17 / −15 the climax is bigger in sound, not much in level — lower the piano to −18.5 if
+it should stand out more.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

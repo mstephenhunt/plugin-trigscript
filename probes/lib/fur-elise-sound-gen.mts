@@ -22,7 +22,7 @@ const SAL = join(S, "salamander-grand-v3", "extracted", "SalamanderGrandPianoV3_
 const make = (...args: string[]) => execFileSync("npx", ["tsx", join(root, "scripts", "make-samples.mts"), ...args], { stdio: "inherit" });
 const VSCO = "VSCO 2 Community Edition by Versilian Studios (CC0)";
 
-make(join(SAL, "SalamanderGrandPianoV3.sfz"), join(out, "salamander-grand.samples"), "--keys", "28-91", "--seconds", "10", "--name", "Salamander Grand Piano V3", "--credit", "Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0)");
+make(join(SAL, "SalamanderGrandPianoV3.sfz"), join(out, "salamander-grand.samples"), "--keys", "28-101", "--seconds", "10", "--name", "Salamander Grand Piano V3", "--credit", "Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0)");
 const vsco = (folder: string, file: string, name: string, ...more: string[]) => make("--names", join(V, folder), join(out, `${file}.samples`), "--name", name, "--credit", VSCO, ...more);
 vsco("Strings/Violin Section/susVib", "vsco-violins", "Violins (VSCO 2 CE)", "--octave", "1", "--seconds", "6", "--release", "0.35");
 vsco("Strings/Violin Section/Spic", "vsco-violins-spic", "Violins spiccato (VSCO 2 CE)", "--octave", "1", "--release", "0.15");
