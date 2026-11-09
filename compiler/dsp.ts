@@ -418,3 +418,23 @@ export function sympathetic(chans: Channels, rate: number, pedal: Points, amount
   }
   return [L, R];
 }
+
+/**
+ * A ducker keyed from another sound: the channels turned down by up to `depth` dB while `key` sounds — the key's level
+ * (its two sides' louder, followed over `attack` and `release` seconds) against `threshold`: at or over it, all the
+ * depth; under it, as much less as the key is quieter, in proportion. What makes room for a melody in what plays under it.
+ */
+export function duck(chans: Channels, key: Channels, rate: number, depth: number, threshold: number, attack: number, release: number): Float32Array[] {
+  const n = chans[0].length, kn = key[0].length, floor = 10 ** (-depth / 20), thr = 10 ** (threshold / 20);
+  const up = 1 - Math.exp(-1 / Math.max(1, attack * rate)), down = 1 - Math.exp(-1 / Math.max(1, release * rate));
+  const gain = new Float32Array(n);
+  let env = 0;
+  for (let i = 0; i < n; i++) {
+    let x = 0;
+    if (i < kn) for (const k of key) { const a = k[i] < 0 ? -k[i] : k[i]; if (a > x) x = a; }
+    env += (x - env) * (x > env ? up : down);
+    const amount = Math.min(1, env / thr);
+    gain[i] = 1 - (1 - floor) * amount;
+  }
+  return chans.map((c) => { const out = new Float32Array(n); for (let i = 0; i < n; i++) out[i] = c[i] * gain[i]; return out; });
+}

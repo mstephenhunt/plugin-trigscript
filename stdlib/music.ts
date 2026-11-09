@@ -411,6 +411,12 @@ export const presets = {
   braam: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 5, detune: 16, width: 0.6, volume: 0.22, attack: 0.04, decay: 1.2, sustain: 0.7, release: 0.9, filter: { cutoff: 160, amount: 3.4, resonance: 0.25, envelope: { attack: 0.45, decay: 1.6, sustain: 0.35, release: 0.8 } }, drive: 14, ...o }),
   /** A short synth pulse for sixteenth ostinatos: two squares, a quick filter blip. */
   pulse: (o: SynthOptions = {}) => synth({ wave: "square", voices: 2, detune: 9, width: 0.4, volume: 0.12, attack: 0.002, decay: 0.09, sustain: 0.25, release: 0.04, filter: { cutoff: 900, amount: 2.2, resonance: 0.3, envelope: { decay: 0.08, sustain: 0.1 } }, ...o }),
+  /** A trance lead: seven saws a little apart, bright, a quick glide into each note — the melody on top of a drop. */
+  trance: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 7, detune: 18, width: 0.5, volume: 0.13, attack: 0.004, decay: 0.3, sustain: 0.85, release: 0.15, glide: -0.6, glideTime: 0.03, filter: { cutoff: 2600, amount: 1.4, resonance: 0.15, envelope: { decay: 0.3, sustain: 0.55 } }, ...o }),
+  /** A plucked synth for arpeggios: a saw whose filter snaps shut, a short tail. */
+  arp: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 2, detune: 10, width: 0.4, volume: 0.13, attack: 0.002, decay: 0.16, sustain: 0.08, release: 0.12, filter: { cutoff: 500, amount: 3.2, resonance: 0.25, envelope: { decay: 0.14, sustain: 0 } }, ...o }),
+  /** Supersaw chord stabs: wide, short, the filter open on the hit. */
+  stab: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 7, detune: 26, width: 0.8, volume: 0.11, attack: 0.003, decay: 0.22, sustain: 0.35, release: 0.15, filter: { cutoff: 1500, amount: 2.2, resonance: 0.12, envelope: { decay: 0.25, sustain: 0.3 } }, ...o }),
   /** A sub bass: a sine, soft at the start, under everything. */
   sub: (o: SynthOptions = {}) => synth({ wave: "sine", volume: 0.4, attack: 0.02, decay: 0.3, sustain: 0.9, release: 0.25, ...o }),
 };
@@ -627,6 +633,17 @@ export function riser(seconds: number, options: { readonly volume?: number; read
   const swept = noise(s, { volume: v, rate }).filter("bandpass", [[0, 350], [s * 0.6, 1800], [s, 9000]], { resonance: 0.55 });
   const lift = tone([[0, 220], [s, 880]], s, { wave: "saw", voices: 3, detune: 25, width: 0.8, volume: v * 0.25, rate }).filter("lowpass", [[0, 500], [s, 6000]]);
   return swept.mix(lift).envelope([0, 0], [s * 0.5, 0.25], [s * 0.9, 0.85], [s, 1]).fade(0, 0.01);
+}
+
+/**
+ * White noise through a filter sweeping over `seconds`: up (as left out) from a low rumble to bright hiss, growing
+ * louder, as a drop is built to; `down: true` the other way, falling and fading after it.
+ */
+export function sweep(seconds: number, options: { readonly down?: boolean; readonly volume?: number; readonly rate?: number } = {}): Clip {
+  const rate = options.rate ?? 44100, v = options.volume ?? 0.4, s = seconds, down = options.down === true;
+  const points: [number, number][] = down ? [[0, 12000], [s, 150]] : [[0, 150], [s * 0.7, 2500], [s, 14000]];
+  const shape: [number, number][] = down ? [[0, 1], [s, 0]] : [[0, 0], [s * 0.6, 0.35], [s, 1]];
+  return noise(s, { volume: v, rate }).filter("lowpass", points, { resonance: 0.3 }).envelope(...shape).fade(0.005, 0.01);
 }
 
 /** A boom to land on: a falling sine under a burst of noise, ringing `seconds` (1.5). */
@@ -1327,6 +1344,8 @@ export interface RenderOptions {
   readonly master?: (mix: Clip) => Clip;
   /** LUFS the mix is brought to before the limiter (`Clip.loudness`): −16 for a piano on its own, −14 a band. */
   readonly loudness?: number;
+  /** A performance's parts to mix, by name — the rest left out: stems, a melody apart from what is under it. */
+  readonly parts?: readonly string[];
 }
 
 /** The parts of a mix as `render` adds them up: each part, and what it sends to the shared reverb. */
@@ -1347,11 +1366,14 @@ function mixPerformance(p: Performance, rate: number, options: RenderOptions): C
   if (!inside) throw new Error("render() takes a performance made by music.perform.");
   const parts: { clip: Clip; at: number }[] = [], sends: { clip: Clip; at: number }[] = [];
   const done = new Set<Instrument>();
-  for (const { part } of inside.parts) {
+  const only = options.parts;
+  if (only) for (const k of only) if (!inside.parts.some((x) => x.name === k)) throw new Error(`render(): the performance has no part ${JSON.stringify(k)}: its parts are ${inside.parts.map((x) => x.name).join(", ")}.`);
+  for (const { name: first, part } of inside.parts) {
+    if (only && !only.includes(first)) continue;
     const inst = part.instrument;
     if (done.has(inst)) continue;
     done.add(inst);
-    const names = inside.parts.filter((x) => x.part.instrument === inst).map((x) => x.name);
+    const names = inside.parts.filter((x) => x.part.instrument === inst && (!only || only.includes(x.name))).map((x) => x.name);
     const own = p.notes.filter((n) => names.includes(n.part));
     if (own.length === 0) continue;
     const pedal = inside.pedal.get(inst) ?? [];
@@ -1368,7 +1390,10 @@ function mixPerformance(p: Performance, rate: number, options: RenderOptions): C
     parts.push({ clip, at: 0 });
     if ((part.reverb ?? 0) > 0) sends.push({ clip: clip.gain(part.reverb ?? 0), at: 0 });
   }
-  if (parts.length === 0) throw new Error("render(): the performance plays no notes.");
+  if (parts.length === 0) {
+    if (only) return mixdown([{ clip: noise(0.01, { volume: 0, rate }), at: 0 }], p.seconds || 0.01, rate);
+    throw new Error("render(): the performance plays no notes.");
+  }
   return withReverb(parts, sends, p.seconds, rate, options.reverb);
 }
 
@@ -1736,6 +1761,6 @@ export const loop = game(async (s: Song) => {
 
 /** Everything above as one name: import { music } from "trigscript/music"; music.play(song). */
 export const music = {
-  sampler, sampled, perform, excerpt, hits, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
+  sampler, sampled, perform, excerpt, hits, sweep, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
   part, section, arrange, transpose, stretch, repeat, beat, chord, over, chords, bars, pump, riser, impact, midi, stems, conduct,
 };

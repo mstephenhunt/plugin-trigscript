@@ -648,6 +648,12 @@ ${kw}interface Clip {
   /** Louder or quieter as a whole, so its loudness (\`lufs\`) is \`lufs\`: \`mix.loudness(-15).limit()\`. */
   loudness(lufs: number): Clip;
   /**
+   * Turned down while \`key\` sounds — up to \`depth\` dB (6) when the key is at \`threshold\` dB (−30) or over, less in
+   * proportion when it is quieter, following it over \`attack\` (0.01) and \`release\` (0.15) seconds: room made for a
+   * melody in what plays under it. \`pads.duck(lead, { depth: 5 })\`
+   */
+  duck(key: Clip, options?: { readonly depth?: number; readonly threshold?: number; readonly attack?: number; readonly release?: number }): Clip;
+  /**
    * What a piano's strings add while its sustain pedal is down: each string, A0 to E6, answers the partials of the
    * notes that fall on its own and rings on, until the pedal comes up and the dampers stop it. \`pedal\`: [down, up]
    * in seconds; \`amount\` how loud a string answers (0.25), \`decay\` seconds it rings (3). Two channels, the

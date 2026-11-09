@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { compileScript, type CompileResult } from "../compiler/compiler";
 import { defaultScriptNames } from "../compiler/names";
 import { defaultLib } from "../bundle/lib.mjs";
-import { clipChannels, decodeAdpcm, makeClip, tone } from "../compiler/sound";
+import { clipChannels, decodeAdpcm, makeClip, silence, tone } from "../compiler/sound";
 import { describeSamples, readSamples, writeSamples, type ZoneData } from "../compiler/samples";
 
 const LIB = defaultLib();
@@ -254,6 +254,33 @@ describe("music.hits and the trailer presets", () => {
       let refused = "";
       try { fx.note("E2", 1); } catch (e) { refused = String(e); }
       if (!/no clip for E2/.test(refused)) fail(refused);`);
+    expect(errors(r)).toEqual([]);
+  });
+});
+
+describe("melody first: ducking, stems, the trance presets", () => {
+  it("ducks a pad by the lead's own envelope: down while the lead sounds, back when it stops", () => {
+    const rate = 22050, pad = tone(220, 3, { volume: 0.5, rate }), lead = tone(880, 1, { volume: 0.5, rate });
+    const ducked = clipChannels(pad.duck(lead.then(silence(2, { rate })), { depth: 6, threshold: -30 }))[0];
+    const during = rms(ducked, 0.4, 0.8, rate), after = rms(ducked, 2.0, 2.5, rate);
+    expect(20 * Math.log10(during / after)).toBeCloseTo(-6, 0);
+  });
+
+  it("renders only the parts asked for, and a sweep and the trance presets are clips of their lengths", () => {
+    const r = run(`
+      const take = music.perform({ meter: "4/4", bpm: 120 }, {
+        lead: { instrument: music.presets.trance(), notes: "E5/4 D#5 E5 B4" },
+        arp: { instrument: music.presets.arp(), notes: "A3/16 C4 E4 A4 r/4. r/2" },
+        stab: { instrument: music.presets.stab(), notes: "A3+C4+E4/8 r/4. r/2" },
+      });
+      const lead = music.render(take, { parts: ["lead"], limit: false }), rest = music.render(take, { parts: ["arp", "stab"], limit: false });
+      const all = music.render(take, { limit: false });
+      if (Math.abs(mixdown([{ clip: lead, at: 0 }, { clip: rest, at: 0 }]).lufs - all.lufs) > 0.2) fail(\`\${lead.lufs} \${rest.lufs} \${all.lufs}\`);
+      const s = music.sweep(2), d = music.sweep(1, { down: true });
+      if (Math.abs(s.seconds - 2) > 0.01 || Math.abs(d.seconds - 1) > 0.01) fail("sweep");
+      let refused = "";
+      try { music.render(take, { parts: ["bass"] }); } catch (e) { refused = String(e); }
+      if (!/no part "bass"/.test(refused)) fail(refused);`);
     expect(errors(r)).toEqual([]);
   });
 });
