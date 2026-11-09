@@ -1,0 +1,78 @@
+TrigScript Showcase #3 probe: the Für Elise visualizer
+======================================================
+
+Map: trigscript-fur-elise-visual.scx (lobby "Für Elise visual probe"). About 100 seconds, nothing to press.
+
+What it asks: does a piano roll drawn by the game look good on video, and does the picture stay with the music? The
+piano is a stand-in (an electric piano); the real piano comes from the sound probe. Every note's time is worked out
+when the map is built, and the picture of every frame with it.
+
+What to record
+--------------
+- Host it as a multiplayer game, alone (the computer slot stays a computer). Remastered graphics, no F5.
+- Options: game MUSIC OFF, sound effects ON (the piano is played as sound effects). Widescreen, as you normally play.
+- Record the whole run from the lobby to "The end. Thank you." Do not move the camera or click on the map; the camera
+  is put back on the stage every 4 seconds anyway.
+
+What is where
+-------------
+- Minimap: a piano roll on black. Notes fall onto a keyboard row (white keys white, black keys indigo) that lights as
+  each key sounds: right hand gold, left hand cyan, the storm's chords red.
+- Main screen: the same as Flags: a keyboard of 30 white keys with the black keys above them, notes falling onto it.
+- Top left of the main screen: the sync lamp, a start-location ring. Black, and white on each frame a note starts
+  (and on each click in part T). This is what the recording is measured by: keep it in view.
+
+The parts (seconds from the start of the game, about; each is named in the text lines as it starts)
+---------------------------------------------------------------------------------------------------
+T    2   six clicks, a second apart, the lamp white on each.
+A1   9   the A section. Falling notes, a row every frame on the main screen.
+A2  22   the same music on: the main screen's notes fall half as fast (a row every other frame).
+C-a 45   a stormy passage in D minor: the white keys flash red on each chord, Disruption Webs on the downbeats.
+C-b 50   the same storm with explosions on the downbeats (Wraiths, and three Battlecruisers on the last chords).
+         The game's own explosion sounds will be heard here.
+S1  57   the theme twice, played as one long clip.
+S2  72   the same theme, played as a clip a bar, each bar started by the game.
+V1  86   the theme again, the notes rising from the keys after they sound.
+V2  93   the keys alone, no rolls.
+    102  "The end. Thank you."
+
+Questions
+---------
+1. Did the lobby show the name with the ü ("Für Elise visual probe"), and the first text line too? ->
+2. Minimap: do the falling notes read as a piano roll (columns of dots onto the keyboard row)? Too small, too sparse? ->
+3. Minimap: can you tell the hands apart (gold / cyan), and the black keys from the white? ->
+4. Main screen: do the Flags read as a keyboard, and the falling notes as notes? Which colours get lost? ->
+5. Main screen: A1 (a row a frame) or A2 (half as fast): which is better to watch? Does A1 look smooth? ->
+6. Does the picture feel in time with the sound everywhere? Anywhere it feels early or late? ->
+7. C-a: do the red flashes look good or too much? Did any Disruption Web appear, and did it make a sound? ->
+8. C-b: did the explosions appear where the chords are, and are the game's explosion sounds acceptable over the
+   music, or should effects be silent? ->
+9. S1 and S2 should sound the same. Any stutter, flam or gap in S2 at the bar lines? ->
+10. V1 (rising) and V2 (keys alone) against A1 (falling): which look do you want for the Showcase? ->
+11. Did the game slow down or stutter anywhere? ->
+12. Anything else (a unit in the wrong place, a stray Flag or Overlord, an error text)? ->
+
+What I measure from the recording (no need to fill in)
+------------------------------------------------------
+- T: each click's start in the audio against the lamp turning white: the plain delay between sound and picture.
+- A, S1: each note's start (the audio's attacks) against the lamp's flashes, over the whole clip: the delay and
+  whether it grows (drift) over 34 s and 12 s.
+- S2 against S1: the same notes, the same lamp. Each bar of S2 starts on the mixer's 21.3 ms grid on its own, so its
+  delay may change by up to 21 ms from bar to bar; S1's should stay the same through the clip.
+- Minimap redraws: how often the roll moves (expected about 12 times a second).
+
+Results (played 2026-11-09, recording StarCraft 2026.11.09 - 05.14.55.15.mp4, 1:57, Remastered graphics)
+---------------------------------------------------------------------------------------------------------
+No comments from the user; measured from the recording (lamp = mean grey of a 160×20 crop at (270,80), 60 fps;
+audio onsets where the game's digital silence ends; music by onset strength against the lamp's flashes).
+1. The lobby shows "Für Elise visual probe" with the ü.
+2–4. The minimap roll and the main screen's Flags draw as built: falling notes, gold/cyan hands, red storm chords.
+6. The picture LEADS the sound by a steady ~95 ms: T's clicks −100, −88, −98, −89, −96 ms (lamp before click);
+   the music 85–115 ms in every 3-second window of A1, A2, C-a, S1, S2 and V1, no trend over the 35 s A clip.
+   (The theme's even sixteenths make the match repeat every ~130 ms; the search was held to 40–170 ms.)
+   The Showcase starts each clip ~2 frames before its picture (or holds the picture 2 frames).
+7. No Disruption Web appeared: Remastered refuses it from a trigger, as 1.16.1 does. The red flashes show.
+8. The explosions (Wraiths, then Battlecruisers) show on the downbeats.
+9. S2 (a clip a bar) against S1 (one clip): each bar lands −40 … +30 ms off S1's place — audible unevenness. One
+   long clip (or a clip a section) is the way; never a clip a bar.
+5, 10: the look and speed are the user's choice.

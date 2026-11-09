@@ -19,7 +19,7 @@
  * written. IMA ADPCM, PCM and Ogg Vorbis play; Ogg Opus does not.
  */
 import { fromBase64, toBase64 } from "./rangeCoder";
-import { chorus, compressor, curve, echo, echoTail, eq, fmVoice, plate, plateTail, pluckVoice, saturate, seeded, svf, type FilterType, type Points } from "./dsp";
+import { chorus, compressor, curve, duck, echo, echoTail, eq, fmVoice, loudness, plate, plateTail, pluckVoice, saturate, seeded, svf, sympathetic, type FilterType, type Points } from "./dsp";
 
 /** The extension of a sound among a script's files. */
 export const SOUND_EXTENSION = ".sound";
@@ -222,6 +222,8 @@ export interface Clip {
   readonly channels: 1 | 2;
   /** The loudest sample, 0 … 1 (more than 1 clips when the map's file is written). Reading it works the samples out. */
   readonly peak: number;
+  /** Its loudness in LUFS (ITU-R BS.1770, as EBU R 128 measures a programme). Reading it works the samples out. */
+  readonly lufs: number;
   trim(from: number, to?: number): Clip;
   gain(factor: number): Clip;
   fade(inSeconds: number, outSeconds?: number): Clip;
@@ -243,6 +245,9 @@ export interface Clip {
   reverb(options?: { readonly decay?: number; readonly damping?: number; readonly predelay?: number; readonly mix?: number; readonly dry?: number; readonly width?: number }): Clip;
   chorus(options?: { readonly speed?: number; readonly depth?: number; readonly mix?: number }): Clip;
   compress(options?: { readonly threshold?: number; readonly ratio?: number; readonly attack?: number; readonly release?: number; readonly knee?: number; readonly makeup?: number }): Clip;
+  loudness(lufs: number): Clip;
+  duck(key: Clip, options?: { readonly depth?: number; readonly threshold?: number; readonly attack?: number; readonly release?: number }): Clip;
+  resonance(options: { readonly pedal: readonly (readonly [number, number])[]; readonly amount?: number; readonly decay?: number }): Clip;
 }
 
 interface ClipInside {
@@ -251,6 +256,7 @@ interface ClipInside {
   channels?: readonly Float32Array[];
   compute?: () => readonly Float32Array[];
   peak?: number;
+  lufs?: number;
   adpcm?: Uint8Array;
   wav?: boolean;
   /** The Ogg Vorbis quality it goes in the map at, when it is one (`VORBIS_QUALITY` when not said). */
@@ -394,6 +400,14 @@ export function makeClip(samples: Float32Array | readonly Float32Array[], rate: 
   return lazyClip(rate, frames, chans.length as 1 | 2, () => chans, { channels: chans, ...(adpcm ? { adpcm } : {}), ...(wav ? { wav } : {}) });
 }
 
+/**
+ * A clip of samples kept elsewhere — a recording of a sampled instrument (`samples.ts`) — named by `key`, which says
+ * what the samples are, so that a check names what is made from it without decoding them.
+ */
+export function storedClip(key: string, rate: number, frames: number, channels: 1 | 2, compute: () => readonly Float32Array[]): Clip {
+  return made(key, () => lazyClip(rate, frames, channels, compute));
+}
+
 /** A clip `frames` long whose samples `compute` works out when they are asked for. */
 function lazyClip(rate: number, frames: number, channels: 1 | 2, compute: () => readonly Float32Array[], extra: Partial<ClipInside> = {}): Clip {
   if (frames / rate > MAX_SECONDS) throw new Error(`A clip is at most ${MAX_SECONDS / 60} minutes long, not ${(frames / rate / 60).toFixed(1)}.`);
@@ -416,6 +430,11 @@ function lazyClip(rate: number, frames: number, channels: 1 | 2, compute: () => 
         own.peak = p;
       }
       return own.peak;
+    },
+    get lufs() {
+      const own = inside.get(clip)!;
+      if (own.lufs === undefined) own.lufs = loudness(samplesOf(clip), rate);
+      return own.lufs;
     },
     trim(from, to = seconds) {
       num(from, "trim()'s start"); num(to, "trim()'s end");
@@ -574,6 +593,36 @@ function lazyClip(rate: number, frames: number, channels: 1 | 2, compute: () => 
       if (!(num(o.makeup, "compress()'s makeup") >= -24 && o.makeup <= 24)) throw new RangeError(`compress()'s makeup is −24 to 24 dB, not ${o.makeup}.`);
       return same("compress", o, (cs) => compressor(cs, rate, o));
     },
+    loudness(target) {
+      if (!(num(target, "loudness()") >= -70 && target <= 0)) throw new RangeError(`loudness() is LUFS, −70 to 0 (−16 for music heard on its own, −23 for broadcast), not ${target}.`);
+      return same("loudness", [target], (cs) => { const now = clip.lufs; return Number.isFinite(now) ? cs.map((s) => scale(s, 10 ** ((target - now) / 20))) : cs; });
+    },
+    duck(key, options = {}) {
+      if (!isClip(key)) throw new Error("duck() takes the clip it ducks under: pads.duck(lead).");
+      const o = { depth: options.depth ?? 6, threshold: options.threshold ?? -30, attack: options.attack ?? 0.01, release: options.release ?? 0.15 };
+      if (!(num(o.depth, "duck()'s depth") >= 0 && o.depth <= 40)) throw new RangeError(`duck()'s depth is 0 to 40 dB, not ${o.depth}.`);
+      if (!(num(o.threshold, "duck()'s threshold") <= 0 && o.threshold >= -80)) throw new RangeError(`duck()'s threshold is −80 to 0 dB, not ${o.threshold}.`);
+      if (!(num(o.attack, "duck()'s attack") >= 0) || !(num(o.release, "duck()'s release") >= 0)) throw new RangeError("duck()'s attack and release are seconds, 0 or more.");
+      return derive("duck", [key, o], frames, channels, (cs) => duck(cs, channelsAt(key, rate, key.channels), rate, o.depth, o.threshold, o.attack, o.release));
+    },
+    resonance(options) {
+      const pedal = options?.pedal, amount = options?.amount ?? 0.25, decay = options?.decay ?? 3;
+      if (!Array.isArray(pedal)) throw new Error("resonance() takes the pedal: { pedal: [[down, up], …] } in seconds.");
+      const ps = pedal.map((p, k) => {
+        // (A down before 0: the pedal was down already when the clip begins.)
+        if (!Array.isArray(p) || p.length !== 2 || !Number.isFinite(num(p[0], "a pedal's down")) || !(num(p[1], "a pedal's up") >= p[0])) throw new Error(`resonance()'s pedal ${k + 1} is [down, up], seconds, up after down.`);
+        return [p[0], p[1]] as [number, number];
+      });
+      if (!(num(amount, "resonance()'s amount") >= 0 && amount <= 2)) throw new RangeError(`resonance()'s amount is 0 to 2, not ${amount}.`);
+      if (!(num(decay, "resonance()'s decay") > 0 && decay <= 20)) throw new RangeError(`resonance()'s decay is seconds, more than 0, at most 20, not ${decay}.`);
+      // As long again as the pedal may still be down at the end, the low strings' ring.
+      const last = ps.reduce((m, p) => Math.max(m, p[1]), 0), tail = last >= seconds - 1e-9 ? Math.round(decay * 1.5 * rate) : 0;
+      return derive("resonance", [ps, amount, decay], frames + tail, 2, (cs) => {
+        const ring = sympathetic(cs, rate, ps, amount, decay, frames + tail);
+        const dry = cs.length === 1 ? [cs[0], cs[0]] : cs;
+        return ring.map((r, side) => { for (let i = 0; i < frames; i++) r[i] += dry[side][i]; return r; });
+      });
+    },
   };
   inside.set(clip, { frames, compute, ...extra });
   return Object.freeze(clip);
@@ -705,9 +754,11 @@ export function mixdown(parts: unknown, seconds?: unknown, rate?: number): Clip 
  * samples too, however loud each is: what a limiter does for a mix, for sounds the game adds up itself. Never turned
  * up. A clip given several times is one clip back, and one file in the map. `over`: clips that may play on top, each at
  * any of its times (a stinger on any bar line) — the gain leaves room for them too, and they come back after the parts,
- * turned down with them. The gain is worked out when a build needs the samples, from the whole mix.
+ * turned down with them. The gain is worked out when a build needs the samples, from the whole mix. `lufs`: instead, the
+ * one gain — up or down — that brings what they add up to to that loudness (`Clip.lufs`): sections of a piece made
+ * apart, kept as loud against one another as they were played.
  */
-export function together(parts: unknown, options?: { readonly peak?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[] {
+export function together(parts: unknown, options?: { readonly peak?: number; readonly lufs?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[] {
   if (!Array.isArray(parts) || parts.length === 0) throw new Error("together() takes { clip, at } parts, one at least.");
   const list = parts.map((p, k) => {
     const c = (p as { clip?: unknown })?.clip, at = (p as { at?: unknown })?.at ?? 0;
@@ -721,9 +772,15 @@ export function together(parts: unknown, options?: { readonly peak?: number; rea
     if (!isClip(o?.clip) || !Array.isArray(o.at)) throw new Error(`together()'s over ${k + 1} is { clip, at: [seconds, …] }.`);
     return { clip: o.clip, at: o.at.map((t) => num(t, "an over's time")) };
   });
-  const whole = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at])]);
+  const lufs = options?.lufs;
+  if (lufs !== undefined && !(num(lufs, "together()'s lufs") >= -70 && lufs <= 0)) throw new RangeError(`together()'s lufs is −70 to 0, not ${lufs}.`);
+  const whole = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at]), ...(lufs === undefined ? [] : [lufs])]);
   let gain: number | undefined;
   const turn = () => {
+    if (gain === undefined && lufs !== undefined) {
+      const now = mixdown(list).lufs;
+      gain = Number.isFinite(now) ? 10 ** ((lufs - now) / 20) : 1;
+    }
     if (gain === undefined) {
       const sum = samplesOf(mixdown(list));
       let top = 0;

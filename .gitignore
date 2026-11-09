@@ -8,3 +8,5 @@ probes/*.video
 probes/*.image
 # The sound demo's imported sound: made on the spot by probes/lib/sound-demo-gen.mts.
 probes/*.sound
+# Sampled instruments a probe imports (probes/fur-elise-sound.ts): made from sample libraries outside the repository by scripts/make-samples.mts, never committed.
+probes/*.samples

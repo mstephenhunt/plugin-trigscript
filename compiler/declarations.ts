@@ -561,6 +561,12 @@ ${kw}interface Clip {
   readonly channels: 1 | 2;
   /** The loudest sample, 0 to 1; above 1 is cut off when the map's file is written. */
   readonly peak: number;
+  /**
+   * How loud it is as a whole, in LUFS (ITU-R BS.1770, the figure EBU R 128 and the streaming services use): −14 to
+   * −16 for music heard on its own, −23 for broadcast. One channel is measured as the game plays it, from both
+   * sides. Reading it works the samples out.
+   */
+  readonly lufs: number;
   /** The part from \`from\` to \`to\` seconds (the end when left out). */
   trim(from: number, to?: number): Clip;
   /** Louder or quieter: 0.5 is half as loud, 2 twice. The game plays it as loud as written. */
@@ -639,6 +645,21 @@ ${kw}interface Clip {
    * \`makeup\` dB after (0). Evens a part out, or glues a mix.
    */
   compress(options?: { readonly threshold?: number; readonly ratio?: number; readonly attack?: number; readonly release?: number; readonly knee?: number; readonly makeup?: number }): Clip;
+  /** Louder or quieter as a whole, so its loudness (\`lufs\`) is \`lufs\`: \`mix.loudness(-15).limit()\`. */
+  loudness(lufs: number): Clip;
+  /**
+   * Turned down while \`key\` sounds — up to \`depth\` dB (6) when the key is at \`threshold\` dB (−30) or over, less in
+   * proportion when it is quieter, following it over \`attack\` (0.01) and \`release\` (0.15) seconds: room made for a
+   * melody in what plays under it. \`pads.duck(lead, { depth: 5 })\`
+   */
+  duck(key: Clip, options?: { readonly depth?: number; readonly threshold?: number; readonly attack?: number; readonly release?: number }): Clip;
+  /**
+   * What a piano's strings add while its sustain pedal is down: each string, A0 to E6, answers the partials of the
+   * notes that fall on its own and rings on, until the pedal comes up and the dampers stop it. \`pedal\`: [down, up]
+   * in seconds; \`amount\` how loud a string answers (0.25), \`decay\` seconds it rings (3). Two channels, the
+   * low strings to the left. \`music.sampled\` does this itself with its \`resonance\` option.
+   */
+  resonance(options: { readonly pedal: readonly (readonly [number, number])[]; readonly amount?: number; readonly decay?: number }): Clip;
 }
 /**
  * When the script is built: a tone of \`pitch\` — hertz, or a note's name: "A4" (440), "C#5", "Eb3" — for
@@ -676,9 +697,11 @@ ${kw}function mixdown(parts: readonly { readonly clip: Clip; readonly at: number
  * over them — each turned down by one gain, so what they add up to never goes over \`peak\` (0.84, −1.5 dB), between
  * the samples too: what a limiter does for a mix, for sounds the game adds up itself. Never turned up. The same clip
  * given twice comes back as one. \`over\`: clips that may play on top, each at any of its times (a stinger on any bar
- * line), room left for them too; they come back after the parts, turned down with them. When the script is built: \`const [a, b] = together([{ clip: x, at: 0 }, { clip: y, at: 1 }])\`
+ * line), room left for them too; they come back after the parts, turned down with them. \`lufs\`: instead the one gain,
+ * up or down, that brings them together to that loudness — sections of a piece rendered apart, kept as loud against
+ * one another as they were played. When the script is built: \`const [a, b] = together([{ clip: x, at: 0 }, { clip: y, at: 1 }])\`
  */
-${kw}function together(parts: readonly { readonly clip: Clip; readonly at: number }[], options?: { readonly peak?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[];
+${kw}function together(parts: readonly { readonly clip: Clip; readonly at: number }[], options?: { readonly peak?: number; readonly lufs?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[];
 /** A brush of cover(): which of the shapes (0 the first), centred on tile (x, y) of the picture. */
 ${kw}interface Brush { readonly x: number; readonly y: number; readonly shape: number }
 /**
@@ -1243,6 +1266,63 @@ export function beforeEach(fn: (sim: Sim) => void): void;
 export function afterEach(fn: (sim: Sim) => void): void;
 `;
 
+/**
+ * Sampled instruments: in the full declarations, not the compact variant a language model reads (they come from a
+ * \`.samples\` file the editor does not make yet, or from \`samples()\`).
+ */
+const SAMPLED = (kw: string): string => `/**
+ * A sampled instrument when the script is built (\`import piano from "./piano.samples"\`, made from an SFZ
+ * instrument by scripts/make-samples.mts): its recordings, and the keys and strengths each plays (its zones).
+ * \`music.sampled(piano)\` plays it.
+ */
+${kw}interface Samples {
+  readonly name: string;
+  /** Who made the recordings and under what licence: what a map that plays them should say. */
+  readonly credit: string;
+  readonly rate: number;
+  readonly zones: readonly SampleZone[];
+  /** Seconds of recordings in it. */
+  readonly seconds: number;
+}
+/** One zone of a sampled instrument: a recording, the keys and strengths it plays, and how it is played. */
+${kw}interface SampleZone {
+  readonly clip: Clip;
+  /** The key it was recorded at (60 is C4), and the keys it plays, lo … hi. */
+  readonly key: number;
+  readonly lo: number;
+  readonly hi: number;
+  /** The strengths it plays (velocity, 1 … 127). */
+  readonly vlo: number;
+  readonly vhi: number;
+  /** What starts it: a key struck (when left out), let go, the pedal pressed or lifted. */
+  readonly trigger?: "attack" | "release" | "pedal-down" | "pedal-up";
+  /** dB, 0 as recorded. */
+  readonly volume?: number;
+  /** How much the strength changes its loudness, 0 … 1 (1). */
+  readonly veltrack?: number;
+  /** Seconds a note takes to die away after it is let go. */
+  readonly release?: number;
+  /** A release zone: dB quieter each second the key was held. */
+  readonly decay?: number;
+  /** Cents it is tuned up or down. */
+  readonly tune?: number;
+  /** false: played at its own pitch whatever the key. */
+  readonly pitched?: boolean;
+  /** Zones of the same keys and strengths played in turn: this one's turn of \`turns\`. */
+  readonly turn?: number;
+  readonly turns?: number;
+  /** Zones of the same keys chosen by chance: this one when a number 0 … 1 falls in [from, to). */
+  readonly chance?: readonly [number, number];
+}
+/**
+ * When the script is built: a sampled instrument from clips the script has — recordings it imports (.sound), or ones
+ * it makes — for \`music.sampled\`. Each zone a clip, the key it plays at (60 or "C4"), and, when left out, every key
+ * and strength: a note is played from the zone whose key is nearest it.
+ *   const piano = music.sampled(samples([{ clip: c3, key: "C3" }, { clip: c4, key: "C4" }, { clip: c5, key: "C5" }]));
+ */
+${kw}function samples(zones: readonly ({ readonly clip: Clip; readonly key: number | string; readonly lo?: number | string; readonly hi?: number | string } & Partial<Omit<SampleZone, "clip" | "key" | "lo" | "hi">>)[], options?: { readonly name?: string; readonly credit?: string }): Samples;
+`;
+
 /** The whole declaration file for a set of names. */
 /** What importing one of the script's media files gives (`media.ts`). */
 const MEDIA_MODULES = `// ── A video the script imports: import badApple from "./bad-apple.video"; ──
@@ -1260,6 +1340,11 @@ declare module "*.sound" {
   const sound: Clip;
   export default sound;
 }
+// ── A sampled instrument the script imports: import piano from "./piano.samples"; ──
+declare module "*.samples" {
+  const samples: Samples;
+  export default samples;
+}
 // ── Notes the script imports, from a MIDI file: import tune from "./tune.notes"; ──
 declare module "*.notes" {
   const notes: Notes;
@@ -1271,7 +1356,7 @@ export function generateDeclarations(names: ScriptNames = defaultScriptNames(), 
   const compact = options.compact === true;
   const globals = body("declare ", "", names, compact);
   if (compact) return `${HEADER}${globals}\n${ARRAYS}`;
-  const module = `${body("export ", "export ", names, false)}\n${TESTING}`.split("\n").map((l) => (l ? `  ${l}` : l)).join("\n");
-  return `${HEADER}${globals}\n${ARRAYS}\n// ── The same names, as a module: import { trigger, units } from "${MODULE_NAME}"; ──\ndeclare module "${MODULE_NAME}" {\n${module}\n}\n${MEDIA_MODULES}`;
+  const module = `${body("export ", "export ", names, false)}\n${SAMPLED("export ")}\n${TESTING}`.split("\n").map((l) => (l ? `  ${l}` : l)).join("\n");
+  return `${HEADER}${globals}\n${SAMPLED("declare ")}\n${ARRAYS}\n// ── The same names, as a module: import { trigger, units } from "${MODULE_NAME}"; ──\ndeclare module "${MODULE_NAME}" {\n${module}\n}\n${MEDIA_MODULES}`;
 }
 

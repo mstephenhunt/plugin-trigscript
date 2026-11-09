@@ -7,6 +7,7 @@
 import type { PluginApi } from "@scm-js/plugin-api";
 import type { Translate } from "./i18n";
 import { readMidi, readNotes, writeNotes, type NotesData } from "./compiler/notes";
+import { describeSamples } from "./compiler/samples";
 
 export const MIDI_FILES = ".mid,.midi,audio/midi,audio/x-midi";
 export const isMidiSource = (f: File): boolean => /\.midi?$/i.test(f.name) || f.type === "audio/midi" || f.type === "audio/x-midi";
@@ -176,3 +177,22 @@ export function showNotes(api: PluginApi, t: Translate, path: string, text: stri
     },
   });
 }
+
+/** A `.samples` file of the script (a sampled instrument, made by scripts/make-samples.mts), shown: what it holds, and how a script plays it. */
+export function showSamples(api: PluginApi, t: Translate, path: string, text: string): void {
+  const w = api.ui.widgets;
+  const stem = (path.split("/").pop() ?? path).replace(/\.samples$/i, "");
+  const name = stem.replace(/[^A-Za-z0-9]+(.)?/g, (_m, c: string | undefined) => (c ? c.toUpperCase() : "")).replace(/^[^A-Za-z_]+/, "") || "piano";
+  api.ui.dialog({
+    title: path,
+    size: "md",
+    mount(body) {
+      body.append(
+        w.hint(describeSamples(text)),
+        w.hint(t("Import it with import {name} from \"./{file}\", play it with music.sampled({name}).", { name, file: path.split("/").pop() ?? path })),
+      );
+      return () => {};
+    },
+  });
+}
+

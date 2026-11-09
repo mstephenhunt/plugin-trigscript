@@ -6509,6 +6509,426 @@ column lit whole where one face meets another — now the default of `fog.column
 **Not yet:** Textures, sprites
 (a monster drawn as a scaled picture in front of the walls), a floor with distance, more than one level.
 
+### S7. Für Elise, the third Showcase (asked 2026-11-08)
+
+The user: "for our next showcase trigscript map i want to show off the sound/music capabilities … Für Elise with a
+cool visualizer … make it sound as awesome as possible". Showcase #3 (the raycaster becomes #4; the two run
+alongside).
+
+**Decided (the user, 2026-11-08):** the arc, not plain piano — A as an intimate solo piano; the stormy D-minor C
+section turns into a full arrangement (strings, low brass, timpani) switched in with `Band`; the last A back to solo
+piano in a big hall, ending on the soft final chord. Probes first: one for the sound, one for the visualizer's timing.
+
+**Why the library needs work for a solo piano** (read 2026-11-08):
+- `sampler()` takes one recording and pitches it everywhere — away from its root the notes sound sped up or slowed.
+  `fmSynth` gives an electric piano, not a grand.
+- `midi()` snaps every note to a step grid at the file's first tempo; velocity only changes loudness, not tone; no
+  sustain pedal. A grid Für Elise sounds like a ringtone; the piece lives on rubato and pedalled arpeggios.
+- Played note by note, a sound starts on a 42 ms frame plus the mixer's 21.3 ms grid (sd 7.8 ms against the same
+  song pre-mixed). Under a band that is not heard; a lone piano's sixteenths (~115 ms) would wobble. So the piano is
+  **rendered** (`render` / `stems`) and the visuals follow the note timeline known when the script is built.
+
+**The plan:**
+1. *Sound.* A multisampled instrument in `trigscript/music`: recordings across the keyboard, velocity layers (a soft
+   note sounds soft, not just quieter), release samples, a sustain pedal with sympathetic resonance. A performance
+   that is not a grid: notes at their own times and velocities, a tempo map (rubato), pedal. Sources: the Salamander
+   Grand Piano V3 (Alexander Holm, CC-BY 3.0 — credit in the map description and the docs) and VSCO 2 Community
+   Edition (Versilian Studios, CC0) for strings, brass and timpani. Both are additions every later map can use.
+2. *Visualizer.* Minimap: notes falling onto a keyboard row that lights as each key sounds, coloured by hand (the
+   Overlord colour board, `probes/lib/unit-screen.ts`). Main screen: StarCraft as the stage — a visible effect on each
+   note (melody, the left hand's arpeggios across a terrain keyboard, big effects on the C section's chords).
+3. Showcase build, recording, the Showcase entry in scm-js docs/trigscript.md — as Korobeiniki did.
+
+**Rights (keep):** Beethoven's score is public domain; the transcription and the arrangement are ours, written from
+the score — never an existing MIDI file or someone's arrangement. Samples only from the two libraries above (or
+another with a licence that allows putting them in a map). Never a Blizzard sound. Nothing called "Für Elise" by
+anyone else's name.
+
+**Probes (2026-11-08):** branch `fur-elise` (sound: worktree ~/github/plugin-trigscript-fur-elise) and
+`fur-elise-visual` (visualizer: worktree ~/github/plugin-trigscript-fur-elise-visual). Each records its results
+below in its own subsection.
+
+#### S7 sound probe (built 2026-11-08)
+
+Branch `fur-elise`, three commits on the library and one on the probe; not played yet.
+
+**The library gained:**
+- *`.samples` files* (`compiler/samples.ts`): a sampled instrument among a script's files — recordings and zones as an
+  SFZ instrument has them (keys, strengths, attack / release / pedal triggers, volume, amp_veltrack, ampeg_release,
+  rt_decay, tune, keytrack, round robin, lorand/hirand), 16-bit coded without loss (fixed predictors and Rice codes,
+  about a sixth of 16-bit in base64 for a piano's decaying notes). Decoded when a build first needs a recording; a
+  check names everything by key without decoding. `scripts/make-samples.mts` makes one from an SFZ file or a folder
+  named by note (`--keys --layers --seconds --octave --detect --pitch`). `samples(zones)` makes one in a script from
+  its own clips (imported `.sound` files, say). In the full declarations only, not the compact one a language model
+  reads (it would go over its third).
+- *`music.sampled(set, options)`*: the recording nearest each key (moved at most to it), the one made at the note's
+  strength; let go, 60 dB down over the zone's release and the release zones play (damper, string resonance, quieter
+  the longer it was held). Instruments may `strike` at a velocity (a pattern's "@" picks the recording) and play a
+  performance's notes `together`: the pedal holds what is let go and sounds itself, a re-struck key cuts the sound
+  before, `resonance` adds sympathetic strings.
+- *`music.perform(options, parts)`*: a score's notation a part at a time — lengths with dots and triplets, ties,
+  rests, `@` velocities, staccato, accents, pp … ff and hairpins, `ped` / `*`, bar lines checked — at a tempo map
+  ([bar, bpm] points), holds and seeded unevenness. It returns the timeline the visualizer needs: each note's `at`,
+  `end`, `pitch`, `velocity`, `part`, `voice`, `bar`, `beat`, `frame`; `bars`; `pedal`. `music.render` mixes it (parts
+  on one instrument played together, heard as the first of them) and takes `loudness` (LUFS before the limiter).
+- *`Clip.lufs`, `loudness(lufs)`* (BS.1770-4; a clip of one channel measured as heard from both sides, as the game
+  plays it) and *`Clip.resonance({ pedal })`* (a comb filter a string, A0 … E6). ENGINE stays "sound 3": no existing
+  clip is made differently.
+
+**The probe** (`probes/fur-elise-sound.ts`, sheet `probes/answers/fur-elise-sound.txt`, transcription
+`probes/lib/fur-elise-score.ts` from the Breitkopf & Härtel complete edition on Wikimedia Commons; instruments by
+`probes/lib/fur-elise-sound-gen.mts` from ~/github/samples, never committed): five rendered items, each announced —
+1 the old single-sample sampler on the grid, 2 the Salamander grand on the grid (mf), 3 the A section played (tempo
+map, dynamics, Beethoven's pedal marks, resonance 0.07, hall plate 0.84, 49 s), 4 the storm C1 … C17 with strings,
+horns, trombones, tuba and timpani (32 s), 5 the theme's last bars into the storm (46 s). Map 3.5 MB, the five Oggs
+3.36 MB (quality 6), the run 5,377 frames (3:46). Measured on the decoded files: −17.0 LUFS for 1–3, −15.1 for 4–5,
+true peaks −1.4 … −6.5 dBTP; the limiter takes at most 2.5 dB off the theme's loudest notes (at −16 it took 5.7, so
+−17), 4 dB off the storm's hits. The orchestra's parts balanced by measuring each alone. Lifted game (game-check,
+5,800 frames): 0 ending, 0 never seen; the labels and items on the frames written. Instruments: piano 125 MB of
+`.samples` (483 recordings, keys 28–91, 16 layers, 10 s), VSCO 2.1–15 MB each; a check 2.8 s, a build 18 s.
+
+**Found on the way:** the first loudness read mono clips 3 dB low against the game (which plays one channel from
+both sides); a re-struck key's release tail ran on under the new note (now cut); bar 11 marked mp stood 4 dB over the
+rest and the limiter flattened it (now p with the melody note leaning).
+
+**Open:** the user's ears — items 1–5 and the questions on the sheet (resonance amount, hall, balance, the change into
+the storm). The editor cannot make a `.samples` file, and a map keeps a script's files: a 125 MB piano in the map is
+out of the question — a sampled instrument wants to live outside the map (a library the plugin fetches, or the
+user's disk) with only the renders inside. Velocity crossfades between layers and per-note release velocity are not
+modelled. The C section's bars C6 and C16 were hard to read in the scan (C6's chord read as C4 F#4 A4 over D#2, a
+diminished seventh to the E of C7; C16's bass as A2).
+
+**Played 2026-11-09** (recording StarCraft 2026.11.09 - 05.02.42.14.mp4): the user, "sounds great". Measured against the
+five files: each heard whole (fit 1.000), at the file's level (+0.7 dB), no drift, stereo kept, nothing at full scale;
+the game's text shows the ü. The sheet's choices were not answered one by one, so the defaults stand: the orchestra in
+the storm only, a smaller room for the first A and the hall for the last, −17 / −15 LUFS, all 16 piano layers.
+
+
+#### S7 the full soundtrack (built 2026-11-09)
+
+After the sound probe ("sounds great") and the visualizer probe (one long clip keeps time with the game, a steady
+~95 ms; a clip a bar wanders −40 … +30 ms): the whole piece is one Ogg, the sections with their tails only a fallback.
+
+- **The notes** (`probes/lib/fur-elise-score.ts`, from the same 1888 Breitkopf scan, every repeat taken): the A
+  section (pickup, 1 … 7 and the first ending, 1 … 7 and the second, the middle part 9 … 21 with its first ending, and
+  again), the F major episode B0 … B15 (B0 the second ending's C7; the tune with its grace notes as sixty-fourths; the
+  thirty-second passage twice, the second as an echo; the E–D# back), the theme again, the bar of drumming A and the
+  storm C1 … C17, the arpeggios in sixteenth triplets P1 … P3 (P3 an octave up, the score's 8va) and the chromatic
+  run P4 … P5, the theme a last time and the held A. Read against the scan: bars 12 … 14 — the left hand ends bar 12
+  on E4 and starts bar 13 on E5 (slurred, not tied: the probe had it tied), the right hand's E5 E6 between; bar 14's
+  E5 an eighth on page 1 and the last A, a sixteenth on page 2 (each as printed).
+- **Unsure, chosen by harmony:** B12's left-hand chord (read G#3+B3; two sharps printed, one placed oddly), B6's
+  left hand (E3 A3 C4 A3, then D3+D4, F3), B8/B10's three sixteenth chords (F4+G4, E4+G4, D4+F4+G4), the left hand's
+  A minor chord under the arpeggios (A3+C4+E4), and as before C6 and C16.
+- **Played** as item 3 was, extended: the theme's tempo shape every time (a little calmer on its repeat and its last
+  time), the episode lyrical and slowing into the theme, the storm as item 4, the arpeggios flowing, the last bars
+  slowing to the A held in the pedal (the score lets it go short). The pedal as printed, plus the last A's.
+- **The arc:** sections rendered apart with `music.excerpt` — A, B and the theme again in the smaller room (plate 0.7),
+  the storm and the closing in the hall (0.84) — and added up at their times, each tail under what follows, so the room
+  changes where the storm comes in without a seam. The piano's sections share one gain (`together(…, { lufs: −17 })`,
+  kept as loud against one another as played); the storm at −15 alone; the whole limited once.
+- **Output** (`probes/fur-elise.ts`; previews in Maps/TrigScript/fur-elise-sound-preview/full/): the whole piece
+  3:33.4 (the music 3:19, then the held A's ring and the hall), −16.7 LUFS, true peak −1.3 dBTP decoded, 4.2 MB at
+  quality 6; sections A 0:00 (frame 0) 76.1 s −17.4, B 1:07.8 (1,613) 33.1 s −16.8, the theme again 1:34.4 (2,248)
+  41.1 s −16.2, the storm 2:07.1 (3,027) 35.6 s −15.1, the closing 2:32.9 (3,641) 60.5 s −17.3. A build 34 s.
+- **The timeline** for the picture: `probes/lib/fur-elise-timeline.ts`, written by
+  `probes/lib/fur-elise-timeline-gen.mts` from the soundtrack's own build — 1,340 notes `[at, end, pitch, velocity,
+  part, voice, bar, beat, frame]` (parts: right, left, then the orchestra's), the sections with their frames, the bars,
+  the pedal. A program imports it as data, no samples needed.
+- **Library:** `music.excerpt(performance, from, to)` (a pedal down before an excerpt is down already there, without
+  its sound twice); `together(parts, { lufs })`.
+- The piano's `.samples` now spans keys 28 … 101 (557 recordings, 137 MB): P3 reaches E7.
+
+**Open:** the user's ears on the whole. The storm's short-term loudness (−13 … −16) is barely over the theme's loudest
+bars (−13.7): at the probe's −17 / −15 the climax is bigger in sound, not much in level — lower the piano to −18.5 if
+it should stand out more.
+
+#### S7 visualizer probe (built 2026-11-08)
+
+Branch `fur-elise-visual`. The question: does a piano roll drawn by the game look good, and does it stay with the music
+when the music is rendered and the picture is played back frame by frame?
+
+**How it is made.** Everything is worked out when the script is built. `probes/lib/fur-elise-score.ts` is our own
+transcription of the A section (bars 1–22 with both repeats, 45 bars, 34 s) and a passage of our own in the manner of the
+D-minor C section (14 bars, 10 s: chords on every eighth over repeated low D's, a diminished arpeggio over repeated A's,
+a last chord), played on a tempo that moves (downbeats 6% long, `rit` bars slowing to their end), so the notes are not
+on a grid. Bars 12–14 (the octave E's before the theme returns) are from memory and must be checked against an edition.
+The sound is a stand-in: `music.presets.keys` mixed at each note's time with `mixdown`, a plate reverb, one Ogg a part;
+the storm adds a pad. `probes/lib/note-timeline.ts` (tested in `tests/note-timeline.test.ts`) puts notes on the game's
+clock (`frameNotes`: nearest frame, at least one frame long, chords marked), fits the keyboard (`keyRange`, `keyX`),
+works out a roll's cells at a frame (`rollCells`, falling or rising, a row standing for `step` frames) and turns pictures
+into changes (`changesOver`). `probes/lib/fur-elise-run.ts` (tested in `tests/fur-elise-run.test.ts`) lays the parts
+end to end, draws every frame's picture and flattens the changes into four tables (x, y, unit and old colour, new
+colour; 78,861 changes over 2,451 frames, 1.5 MB of payload). The program only reads them: per frame, the clips that
+start, the text, the changes (made, taken away, or handed to another player with Give Units), the effects.
+
+**The screens** (`probes/lib/fur-elise-layout.ts`, base map `probes/lib/fur-elise-map.mts`, 128 × 128 Space Platform,
+Map Revealers placed): the minimap roll is Korobeiniki's Overlord board, a cell two tiles, a column a key, D2–E6 (51 of
+the 64 columns), 40 rows a row every two frames (3.4 s ahead), a two-row keyboard (every key above, the white keys'
+fronts below). The main screen is a stage on Platform: 30 white keys 20 px apart with the black keys a row above,
+falling notes 12 rows of 18 px, all Flag-looking Spider Mines (the S6 spike's pixel, made with units.dat's flingy
+written around each Create Unit). Colours by owner, set with CRGB: P3 white keys, P4 indigo black keys, P5 gold right
+hand, P6 cyan left hand, P7 red storm chords, P8 black; P2 the computer owns nothing. The sync lamp is a start-location
+ring at the view's top left, white on every frame a note starts and black otherwise.
+
+**The parts** (seconds from the start): T 2, six clicks 24 frames apart in one clip with the lamp; A1 9, the A section,
+the stage falling a row a frame; A2 22, from bar 9 the stage falls a row every two frames; C-a 45, the storm, white
+keys flashing red for two frames on each chord, a Disruption Web over each downbeat for 8 frames; C-b 50, explosions
+(a Wraith made and killed on each downbeat, three Battlecruisers on the last two chords; their death sounds are
+heard); S1 57, the theme twice (17 bars, 12 s) as one clip; S2 72, the same as a clip a bar, each bar's notes mixed from
+the frame the bar starts in and played on that frame, so each note lands where S1 has it; V1 86, the theme with notes
+rising from the keys; V2 93, the keys alone; the end at 102.
+
+**Found on the way, in the lifted game:**
+- A Spider Mine made where it would overlap another is put beside its place, and one taken away in the same frame still
+  counts until the frame ends. Recolouring by Remove + Create at the same spot moved the new one; Give Units (the
+  owner, so the colour, changes where the unit stands) does not. The layout keeps every two mines at least 16 px apart
+  and rows 18 apart; a falling cell that would overlap one of its frame or the frame before waits a frame (the D#5 next
+  to a departing E5 was the case that showed it). With that, every frame of the run in the lifted game holds exactly
+  the worked-out picture (test "every frame of the run …", 2,470 frames).
+- A Disruption Web made by Create Unit is refused by 1.16.1; Remastered is for the play. Wraiths and Battlecruisers are
+  made (seen with the kill left out) and none is ever alive after its frame. Reading their deaths gave 0 — the build's
+  variables live in the deaths table, so deaths are no check for this.
+- A probe's module-level `sounds` collides with a name of the build (`Identifier 'sounds' has already been declared`).
+
+**Cost** (A4's tap, lifted game): 8,775 conditions and actions a frame on average, 54,932 at the most (frame 1078, the
+storm's flashes and chords: 193 changes in one frame) — 0.09 ms on average, 0.55 ms at the most by Remastered's weights,
+of ~15 ms. `game-check`: 321,098 accesses, 0 ending the game, 0 ignored, 0 never seen. Units for the pictures: under 600
+at once. Map 1.66 MB (the payload, 1.5 MB, compresses well; the rest is the Ogg clips).
+
+**What to measure from the recording** (sheet `probes/answers/fur-elise-visual.txt`; Remastered graphics, music off,
+sound effects on, the whole run): T, each click against the lamp turning white — the plain audio-to-picture delay;
+A and S1, each attack in the audio against the lamp, over 34 s and 12 s — the delay and any drift within one long clip;
+S2 against S1, the same notes, each bar on the mixer's grid on its own (0–21 ms bar to bar); the minimap's redraw rate
+from the roll's movement. Bad Apple's picture led its sound by 23 ms with no drift over 3½ minutes; if the delay here is
+steady, the Showcase can shift the picture by a frame to meet it.
+
+**Open, for the user after the play:** falling (A1/A2) or rising (V1) or keys alone (V2); a row a frame or every other
+frame on the main screen; red flashes and Disruption Webs (if Remastered makes them) for the storm, or explosions with
+their sounds, or neither; whether the Flags read as a keyboard (the S6 rule: bright, saturated colours only); whether the
+minimap roll is big enough to show in the video or the main screen carries it alone. Not built: a fog-board roll
+(Remastered graphics blurs the fog minimap and it has two tones, no hands; the unit board played well for Korobeiniki),
+hallucinations (a unit's hallucinated flag is not its tint) and spells by order (no Cast order from a trigger).
+
+**Played 2026-11-09** (recording StarCraft 2026.11.09 - 05.14.55.15.mp4): the lobby shows the ü; everything draws as
+built. The picture leads the sound by a steady ~95 ms (clicks −88 … −100 ms; the music 85–115 ms in every 3 s window,
+no drift over the 35 s A clip), so the Showcase starts each clip ~2 frames before its picture. A clip a bar (S2) lands
+−40 … +30 ms off the one clip (S1), bar to bar: one clip a section or one for the whole piece, never a clip a bar. No
+Disruption Web in Remastered either. The explosions show on the downbeats.
+**Chosen (the user, 2026-11-09):** falling notes; the main screen a row every other frame (A2); the storm with red
+flashes on each chord and explosions on the big downbeats only (their game sounds heard).
+
+#### S7 the showcase build (built 2026-11-09)
+
+Branch `fur-elise-visual`, with `fur-elise` (the soundtrack) merged in. `probes/fur-elise-showcase.ts`, lobby "Für
+Elise": the whole piece as one clip, started two frames before the picture's frame 0 (the probe's ~95 ms becomes
+~11 ms), the picture played back from tables worked out when the script is built.
+
+**Generic over the timeline.** The soundtrack will change (an arrangement in a style still to choose), so
+`probes/lib/fur-elise-showcase-run.ts` takes everything from `probes/lib/fur-elise-timeline.ts` (made again by
+`fur-elise-timeline-gen.mts`):
+- *The hands:* parts "right" and "left" when there are, else the two pitched parts with the most notes (the higher the
+  lead). Drum parts (by name: drum, kit, perc, kick, snare, hat, cymbal, clap) are drawn on no roll; they still weigh
+  in the downbeats.
+- *The keyboards:* `fitKeys` (in `probes/lib/note-timeline.ts`, tested) takes the window of keys that holds the most
+  notes within a limit and moves the rest in by octaves. Main screen: at most 40 white keys, 16–20 px apart, the last at
+  view x 830. Minimap: at most 64 keys, the map's columns of cells.
+- *The loud sections:* those whose mean velocity is at least 1.25 times the piece's. There the lead's chords (two or
+  more notes on one bar and beat) are red and the white keys flash red for two frames on each.
+- *The explosions:* the downbeats of the loud sections weighed by the velocities struck on them, the three heaviest at
+  least four bars apart; the heaviest gets three Battlecruisers across the stage, the others a Wraith over each lead
+  note. For Für Elise that picks C16, C9 and C1, the three bars the score marks with an accent.
+- *The end:* the end line 48 frames after the last note is let go, the tables 15 s past it; then the program stops
+  and the game waits, the keyboard up.
+
+**Für Elise as it is now** (the 3:33 soundtrack, a stand-in until the arrangement is chosen): the hands play A1 … E7, 68
+keys. The main screen holds all of them: 40 white keys 16 px apart from view x 206 (the probe's 20 px would need
+800); a Spider Mine is 15 px square, so 16 apart never overlap, and only A1 and B1 sit under where the text lines
+show. The minimap's 64 columns take A1 … C7, so E7's run shows an octave down there. The orchestra (violins … timpani,
+the storm only) is drawn on the minimap in violet, under the piano: the minimap then shows the storm as the full
+arrangement it is, while the main screen stays a piano keyboard; the orchestra's notes on the stage's keys would light
+keys the piano does not play. Colours by owner (CRGB): P3 white keys, P4 indigo black keys, P5 gold right hand, P6
+cyan left hand, P7 red, P8 violet. The sync lamp is gone.
+
+**Checked.** `tests/fur-elise-showcase-run.test.ts` (keyboards, hands, loud section, explosions, flashes, no overlapping
+Flags, the changes rebuild the pictures); in the lifted game the test "every frame of the piece shows the picture
+worked out" holds over all 5,180 frames, and none of the explosions' units outlives its frame. The text test reads the
+end line by its ASCII part: the lifted game shows the map's UTF-8 as Latin-1 ("FÃ¼r"), where Remastered showed the ü in
+the probe's lobby.
+
+**Found on the way:**
+- The soundtrack had to be importable without its probe's program: `probes/lib/fur-elise-soundtrack.ts` holds it now,
+  `probes/fur-elise.ts` imports it (the same six clips by name, the timeline the same to the byte).
+- A script that imports media (a `.samples`, `.sound`, …) could not run beside the game for its tests: the game host
+  ran the modules without the media. `GameTestPayload.media` carries them now (`scripts/test-game.mts` passes them;
+  `tests/game-media.test.ts`). The editor's host does not pass them yet.
+- A module-level name `together` collides with the library's (as `sounds` did in the probe).
+
+#### S7 the cinematic arrangement (built 2026-11-09)
+
+The user on the straight soundtrack: "sounds okay but it takes awhile to get going, can we do a stylistic
+arrangement?" and "some of the notes sound a bit sharp" (B3/C4/C#4 a semitone sharp: an SFZ region with no root, fixed
+in e67671d). Chosen: a cinematic hybrid — piano, orchestra, big percussion, synth pulses — about 2:30.
+
+- **The form** (`probes/lib/fur-elise-cinematic-score.ts`, the piano's notes the score's; frames at 42 ms):
+  intro 0:00 (frame 0) — bars 1 … 8 on the piano alone, free in time, a drone creeping in, a riser made to end on the
+  band's downbeat; band 0:12.7 (302) — the theme, its repeat and the middle part at 144 eighths a minute, steady, felt
+  in 6/8; lift 0:48.9 (1165) — the F major episode as a breath, pulses at its thirty-seconds, the E–D# made a build
+  (riser, tom fills, snare roll); storm 1:08.9 (1642) — the drumming A as a taiko pulse, then everything, the climax;
+  breakdown 1:32.1 (2192) — the arpeggios and the run over a pumping pad; final 1:38.8 (2352) — the theme big, with
+  its repeat and the middle part to bar 18; ending 2:13.9 (3189) — the band gone, bars 19 … 21 and the held A on the
+  piano alone. The whole 2:36.5 (the music 2:22, then the hall).
+- **The palette:** the Salamander piano as the lead throughout (a quick compressor on it; its ff chords stood 6 dB
+  over everything's peaks); VSCO strings (spiccato ostinatos from each bar's chord, held strings, the probe's storm
+  parts), horns, trombones and tuba (braams with the synth braam on the strong bars), timpani; a new VSCO percussion kit
+  (gran cassa, bass drums, tenor drums, snare and roll, crash, suspended cymbal, gong) as taiko patterns over two bars;
+  synths made in the script: braam, sub, pad (pumping a bar), pulses, supersaw in the climax, the library's kick,
+  impacts, a sub drop, risers, a crash reversed. Each part's level set by measuring it alone in the storm against the
+  piano at −13 LUFS.
+- **Mixing:** each section rendered apart in the hall (the band's through a 2:1 bus), section faders (storm +1 dB,
+  final −2), one gain for all (`together(…, { lufs })`), the whole limited once to 0.8. −14.0 LUFS integrated, true peak
+  −1.4 dBTP decoded (the band section's clip −1.0). Short-term: intro −19, band −13 … −16, lift −15, storm −11 … −12,
+  breakdown −16.5, final −14, ending −21. The limiter takes up to ~6 dB off the storm's biggest hits. 3.2 MB at q6.
+- **Library and tools:** `music.hits` (one-shots in a performance), presets braam / pulse / sub, make-samples `--kit`,
+  `scripts/tuning-check.mts` (a render against its timeline) and `scripts/samples-tuning.mts` (an instrument's zones);
+  a sampled instrument's identity in every clip name made from it (no ENGINE bump).
+- **Tuning:** the cinematic whole — 58 pitches checked, one flagged: the trombones' C#3, two notes under the storm's
+  braam (its A1's fifth harmonic on C#3's second); rendered alone they are −1 cents. 11 pitches under 80 Hz (the sub)
+  not judged. The straight soundtrack after the fix: 55 checked, none off. The instruments: the horn's G2, the tuba's
+  F1, timpani 5's ff off, none of them played.
+- **Timeline:** `probes/lib/fur-elise-cinematic-timeline.ts` (beside the straight one, which gained ROLES and HITS):
+  3,644 notes, PARTS and ROLES (lead, accomp, strings, brass, bass, synth, pad, drum-low, drum-high, cymbal, impact,
+  riser), SECTIONS with frames, BARS, PEDAL, HITS (100: impacts, and low drums and cymbals at velocity 110 or more,
+  `[at, frame, strength, part]`). The render is `probes/lib/fur-elise-cinematic.ts` (importing it starts nothing);
+  `probes/fur-elise-cinematic.ts` plays it.
+
+**Open:** the user's ears. The final statement is dense (LRA 1.0) — a wall of sound by design, maybe too much; the
+storm's hits are limited hard. Previews: Maps/TrigScript/fur-elise-sound-preview/cinematic/.
+
+
+#### S7 the showcase on the cinematic arrangement (built 2026-11-09)
+
+`fur-elise` merged again (the cinematic arrangement, the make-samples root-key fix). The showcase now plays the
+cinematic arrangement by default; the straight piece stays buildable.
+
+**One switch.** `probes/lib/fur-elise-showcase-choice.ts`: `SOUNDTRACK` ("cinematic" by default) picks the timeline,
+and `probes/fur-elise-showcase.ts` picks the clip by it (`lib/fur-elise-cinematic.ts`'s `whole` or
+`lib/fur-elise-soundtrack.ts`'s); only the clip played goes in the map. Built under Node, `FUR_ELISE=straight` picks
+the other without an edit (the module reads `globalThis.process.env`; the editor has none, so the constant decides).
+Both soundtrack modules are evaluated at every compile, which takes a check from ~6 s to ~37 s.
+
+**By role, not by name.** The keyboards show the parts whose ROLES are "lead" (gold) and "accomp" (cyan); "drum-low",
+"drum-high", "cymbal", "impact" and "riser" (a kit's key, not a note) are on no roll. Both keyboards are fitted to the
+piano's notes (A1 … E7 on the main screen, 40 white keys 16 px apart; A1 … C7 on the minimap), the rest folded into
+them by octaves.
+
+**Bigger where the music is, the user's choices kept:**
+- *The storm* (the section named "storm"; else the loud sections by velocity): the lead's chords red, the white keys
+  flashing red for two frames on each (64 frames in all).
+- *The big sections*, the storm and the final statement: the rest of the band (strings, brass, bass, synths, pads)
+  falls on the minimap in violet under the piano. The intro, the band's first sections, the breakdown and the ending
+  show the piano alone; the main screen shows only the piano throughout.
+- *The low drums*: in the big sections, each taiko or timpani hit of strength 0.95 or more (HITS) turns the minimap
+  keyboard's front row red for three frames (17 pulses). Nothing on the main screen: that stays the piano's.
+- *Explosions*, from HITS: the impacts of strength 0.9 or more, the strongest first, at least 100 frames (4 s)
+  apart — 7 moments, game time: 0:16.3 the band's first downbeat (Wraiths over the melody); 1:13.8 the storm's first
+  impact (three Battlecruisers); 1:23.8 the storm's middle (0.99: Wraiths); 1:32.6 the storm's last (Battlecruisers);
+  1:42.4 the final's first downbeat, the theme returning (Battlecruisers); 2:03.2 and 2:15.7 the final's big bars
+  (Wraiths). Strength 1 gets Battlecruisers, the rest Wraiths. The taiko's own strokes (about 60 over 0.9) are left out:
+  an explosion on each would be every bar. The straight piece has no impacts, so it keeps the downbeat-weight rule
+  (C1, C9, C16).
+
+**The maps.** Cinematic: 3.46 MB, 2:36.5 of sound (one Ogg, 3.2 MB), the tables to 2:40.7, the end line at 2:27.7;
+payload 2.6 MB, 141,011 changes. Straight: 4.39 MB, as before.
+
+**Checked.** `tests/fur-elise-showcase-run.test.ts` runs every check on both soundtracks (the switch through
+`FUR_ELISE` and `vi.resetModules`). Tuning, on the maps' own Ogg (`scmjs map unpack`, then `scripts/tuning-check.mts`):
+cinematic, 58 pitches, one off — the trombones' C#3 under the storm's braam, as the soundtrack's own check found;
+straight, 55 pitches, none off (B3/C4 fixed). In the lifted game, "every frame of the piece shows the picture worked
+out" holds on both (cinematic 3,825 frames, straight 5,180) and no explosion's unit outlives its frame. Cost
+(cinematic): 9,781 conditions and actions a frame on average, 70,055 at the most (frame 1900, the storm with the
+band and a flash) — 0.10 ms on average, 0.71 ms at the most of ~15 ms; straight as before, 0.55 ms. `game-check`
+(cinematic): 572,099 accesses, 0 ending the game, 0 ignored, 0 never seen.
+
+**Maps** (Maps/TrigScript): `trigscript-fur-elise.scx` the cinematic showcase, `trigscript-fur-elise-straight.scx` the
+straight one, `trigscript-fur-elise-check.txt` (the explosions' times), `fur-elise-showcase-frames.png` (22 stills: two
+a section and each explosion). Not played yet.
+
+#### S7 the synth remix (built 2026-11-09)
+
+The user on the cinematic version: "the background is overshadowing the melody … having it start with the piano and
+going into a louder synth remix would be cool" — trance, 4/4. The diagnosis held: the piano shared its range with the
+ostinatos, the supersaw doubling and the pads, and nothing made room for it. So the melody first, as a measured
+requirement.
+
+- **The form** (`probes/lib/fur-elise-remix-score.ts`; frames at 42 ms): intro 0:00 (0) — the piano alone, bars 1 … 8
+  in 3/8, free, a quiet pad, a noise sweep and a crash reversed into …; drop 1 0:13.1 (312) — 128 a minute, 4/4: the
+  theme reshaped as dance covers do (each 3/8 bar half a bar, the turn's pickup folded in: E D# E D# E B D C), twice,
+  the middle part, the theme again; breakdown 1 0:41.2 (981) — the F major episode's tune on the piano over pads;
+  build 1 0:48.7 (1160) — the E–D# over E, a snare roll, a riser, the suck-in; drop 2 0:56.2 (1338) — the storm: the
+  drumming A as a sixteenth bass, its diminished chords as stabs, its line on the lead; breakdown 2 1:26.2 (2053) — the
+  arpeggios on the piano; build 2 1:33.7 (2231) — the chromatic run, the E–D#; drop 3 1:41.2 (2410) — the theme in
+  full; ending 2:12.4 (3153) — after a breath, bars 19 … 21 and the held A on the piano alone. 2:34.8 with the tail.
+- **The palette:** the trance lead (seven saws, a glide, a dotted-eighth ping-pong) an octave over the piano, which
+  doubles it as written, and a square lead an octave down in drops 2 and 3; plucked arpeggios and supersaw stabs,
+  pads, rolling bass (lowpassed at 700 Hz) and sub, all pumped by the beat; the library's kick, clap, hats and snare;
+  a VSCO crash, violas swelling into the drops, timpani in the storm; impacts, risers, sweeps.
+- **Melody first:** each section mixed as four stems — the melody (lead, its lower octave, piano), the harmony (pads,
+  stabs, arpeggios, strings, the piano's left hand: dipped −5 dB at 1.8 kHz and −3 at 3.5, ducked 6 dB by the melody's
+  own envelope), the effects (crash, impacts, risers, clap, snare, open hats: dipped, ducked 6), the rhythm. The
+  ducking keyed from the whole melody, so a section's tail goes down under the next one's melody too; sweeps and the
+  suck-in high-passed above the melody's range. `scripts/lead-check.mts` (new) measures the melody against the rest in
+  its range bar by bar: every one of 75 bars ≥ 6.9 dB; lowest / median per section — intro 7.7 / 14.1, drop 1 15.5 /
+  18.3, breakdown 1 9.1 / 14.3, build 1 7.9 / 17.7, drop 2 10.3 / 16.2, breakdown 2 10.8 / 14.4, build 2 13.7 / 15.2,
+  drop 3 10.4 / 15.5, ending 6.9 / 16.9. (Before: 17 bars under 6, the worst −11.8 — the suck-in, the tails, the crash.)
+- **Loudness:** each section to its target, the whole limited once (to 0.8): −11.8 LUFS integrated; drops −11.1,
+  −10.8, −11.0 (short-term −10.5 … −11); breakdowns −15, builds −13, intro and ending −20; true peak −1.3 dBTP decoded.
+  The limiter takes at most 3.8 dB (drop 2), after the kick, the timpani and the storm bass's accents came down (5.4
+  before). 3.5 MB at q6.
+- **Library:** `Clip.duck(key)`, `render(…, { parts })`, presets trance / arp / stab, `music.sweep`.
+- **Tuning:** 41 pitches checked, none off; 8 under 80 Hz not judged.
+- **Timeline:** `probes/lib/fur-elise-remix-timeline.ts` — the three performances put together: PARTS, ROLES ("lead"
+  for the piano's right hand and the lead synth, "lead-synth" its lower octave, "accomp" the left hand, "arp", "synth",
+  "pad", "strings", "bass", drums, "cymbal", "impact", "riser"), SECTIONS with a kind (intro, drop, breakdown, build,
+  ending), DROPS, HITS (drops' downbeats at strength 1), BARS (3/8 bars, then 4/4, then 3/8: BEAT is in each one's own
+  beats). `probes/lib/fur-elise-remix.ts` renders, `probes/fur-elise-remix.ts` plays (M and R the stems).
+
+**Open:** the user's ears: whether the lead is too far on top now (medians 15 … 18 dB in the drops), whether the 4/4
+reshaping still reads as Für Elise, the drops' level.
+
+
+#### S7 the showcase on the remix (built 2026-11-09)
+
+The user approved the trance remix, so it is now the showcase's default: `SOUNDTRACK` in
+`probes/lib/fur-elise-showcase-choice.ts` is "remix", and `FUR_ELISE=cinematic` or `FUR_ELISE=straight` still builds the
+others. What a timeline does not say comes from a small `LOOK` per soundtrack there: which section is the storm (the
+remix's "drop 2", as its score names it), which sections are big (the remix's drops and builds), and which roles the
+main screen shows besides the piano (the remix's stabs, role "synth").
+
+**How the remix looks.** Every part with the role "lead" (the piano's right hand and the trance lead that doubles it)
+is gold and drawn on top, on both screens; the left hand is cyan. In the drops and builds the stabs fall on the main
+screen in violet, and the rest of the band (arps, pads, strings, bass) falls on the minimap in violet. The intro, the
+breakdowns and the ending show the piano alone. In the storm the stab chords are red and the white keys flash red on
+each; the white keys also flash red for four frames on each drop's downbeat and each impact of strength 0.9 or more.
+Explosions come from the drops' downbeats and the impacts, strongest first, 4 s apart: five moments, game time 0:16.7
+(drop 1, three Battlecruisers), 0:59.8 (drop 2, the storm, five), 1:16.7 (an impact, Wraiths), 1:44.8 (drop 3, three),
+2:14.8 (an impact, Wraiths). The 2-frame lead of the clip, the half-speed fall and the 16 px spacing are as before.
+The cinematic and straight runs come out exactly as they did (the same changes and moments).
+
+**The map.** 3.79 MB, 154.8 s of sound (one Ogg, 3.5 MB), the end line at 2:26, the tables to 2:39; payload 3.6 MB,
+204,505 changes, at most about 500 units at once. Tuning on the map's own Ogg: 41 pitches, none off. In the lifted
+game every one of its 3,786 frames holds the worked-out picture and no explosion's unit outlives its frame; 0.15 ms a
+frame on average, 0.79 ms at the most (frame 2542, drop 3 with its stabs and the band); `game-check` 825,992 accesses,
+0 ending the game, 0 ignored, 0 never seen. In Maps/TrigScript: `trigscript-fur-elise.scx` (the remix),
+`trigscript-fur-elise-cinematic.scx`, `trigscript-fur-elise-straight.scx`, the check sheet and 24 stills. Not played yet.
+
+**Played and published (2026-11-09).** The user played the remix map in Remastered ("looks great, we'll go with this
+map"). In the recording (StarCraft 2026.11.09 - 13.28.00.01.mp4, 152.6 s) the clip starts at 4.79 s and matches the
+map's Ogg at 1.000, 0 samples of drift at every 10 s. The video is https://www.youtube.com/watch?v=CFVdWwmngyw; the
+editor's TrigScript guide has the Showcase entry, with the map to download. Open: the sampled instruments,
+`music.perform` and the rest of S7's music library come to the editor with the next TrigScript release, and the
+library guide describes them then; the editor cannot import a `.samples` file yet (a whole piano is 125–137 MB).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

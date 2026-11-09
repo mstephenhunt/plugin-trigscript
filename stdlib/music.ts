@@ -54,7 +54,7 @@
  * `render` mixes a song into one clip when the script is built instead: every note exactly in time, one sound playing,
  * nothing to change while it plays. A program plays to its own player; a program for each player plays to each.
  */
-import { game, sleep, frames, playWav, tone, noise, fm, pluck, mixdown, together, memory, type Clip, type Notes } from "trigscript";
+import { game, sleep, frames, playWav, tone, noise, fm, pluck, mixdown, together, memory, type Clip, type Notes, type Samples, type SampleZone } from "trigscript";
 
 /** Seconds a frame lasts on Fastest, the speed a map is played at. */
 const FRAME = 0.042;
@@ -69,7 +69,21 @@ export interface Instrument {
    * second, for an instrument that makes its notes (render asks for 44 100).
    */
   note(name: string, seconds: number, rate?: number): Clip;
+  /**
+   * The note struck at `velocity` — a pattern's "@", 1 as written — for an instrument whose strength changes more than
+   * its loudness (`sampled`: a soft note is a soft recording). Without it a note is `note` made louder or quieter.
+   */
+  strike?(name: string, seconds: number, velocity: number, rate?: number): Clip;
+  /**
+   * A performance's notes on this instrument (`perform`), each at its own time and strength, and its sustain pedal —
+   * [down, up] in seconds — played as the instrument plays them together (a sampled piano's pedal, the sounds of its
+   * keys let go), as one clip from 0. Without it each note is `note` (or `strike`) at its time.
+   */
+  together?(notes: readonly Struck[], pedal: readonly (readonly [number, number])[], rate: number): Clip;
 }
+
+/** A note as an instrument plays it in a performance: from `at` to `end` seconds (the key let go), its key, how hard (1 … 127). */
+export interface Struck { readonly at: number; readonly end: number; readonly pitch: number; readonly velocity: number }
 
 /** What plays a pattern's letters: a clip a letter. */
 export interface Kit {
@@ -206,6 +220,167 @@ export function strings(options: { readonly brightness?: number; readonly decay?
   });
 }
 
+/** How a sampled instrument (`sampled`) plays. */
+export interface SampledOptions {
+  /** How loud, 1 as recorded. */
+  readonly volume?: number;
+  /** The velocity (1 … 127) a pattern's note strikes at "@1", as written (100, as `midi` reads a file's). */
+  readonly velocity?: number;
+  /** Seconds a note takes to die away after it is let go, over the instrument's own (a piano's: 1). */
+  readonly release?: number;
+  /** Whether a key let go, and the pedal pressed and lifted, make their own sounds where the instrument has them (true). */
+  readonly releases?: boolean;
+  /**
+   * How loud the strings answer while the sustain pedal is down (`Clip.resonance`): 0 none (as left out), 0.2 a piano's.
+   * Only in a performance (`perform`), which has a pedal.
+   */
+  readonly resonance?: number;
+  /** Seconds the strings ring with the pedal down (3). */
+  readonly ring?: number;
+  /** Semitones every note is moved by (0). */
+  readonly transpose?: number;
+}
+
+/** A note's loudness by its velocity, as SFZ's amp_veltrack has it: 1 at 127, down to 1 − track at 0, by the velocity squared. */
+const velocityGain = (velocity: number, track: number) => 1 - track + track * (velocity / 127) ** 2;
+const dB = (x: number) => 10 ** (x / 20);
+
+/** The zones of `trigger` that play `key` at `velocity`, the nearest keys and strengths where none does. */
+function zonesFor(zones: readonly SampleZone[], trigger: string, key: number, velocity: number): SampleZone[] {
+  const of = zones.filter((z) => (z.trigger ?? "attack") === trigger);
+  if (of.length === 0) return [];
+  // The nearest keys first: the zones that play the key, or else those whose range is closest to it.
+  const keyGap = (z: SampleZone) => (key < z.lo ? z.lo - key : key > z.hi ? key - z.hi : 0);
+  const near = Math.min(...of.map(keyGap));
+  const keyed = of.filter((z) => keyGap(z) === near);
+  const velGap = (z: SampleZone) => (velocity < z.vlo ? z.vlo - velocity : velocity > z.vhi ? velocity - z.vhi : 0);
+  const best = Math.min(...keyed.map(velGap));
+  return keyed.filter((z) => velGap(z) === best);
+}
+
+/** One of zones that play together in turn (`turn`) or by chance (`chance`): the `count`th time, or by `roll` (0 … 1). */
+function pick(list: readonly SampleZone[], count: number, roll: number): SampleZone {
+  if (list.length === 1) return list[0];
+  const turns = list.filter((z) => z.turns !== undefined && z.turn !== undefined);
+  if (turns.length) {
+    const n = turns[0].turns ?? turns.length, want = (count % n) + 1;
+    return turns.find((z) => z.turn === want) ?? turns[0];
+  }
+  const chance = list.find((z) => z.chance !== undefined && roll >= z.chance[0] && roll < z.chance[1]);
+  return chance ?? list[count % list.length];
+}
+
+/**
+ * An instrument played from recordings (`import piano from "./piano.samples"`, made from an SFZ instrument by
+ * scripts/make-samples.mts): each note from the recording made nearest its key — moved the few semitones to it, no
+ * further — and among those the one made at its strength, so a soft note is a soft recording, not a loud one turned
+ * down. A note held rings as recorded; let go, it dies away over its `release`, and the instrument's sound of a key let
+ * go plays (a piano's damper and its strings settling). In a performance (`perform`) its sustain pedal holds what is
+ * let go until it comes up, the pedal's own sound plays, a key struck again while it sounds stops the sound before,
+ * and with `resonance` the strings ring in sympathy while the pedal is down. In a pattern, "@" chooses the strength:
+ * "@1" is velocity 100 (`velocity`), "@0.5" 50.
+ */
+export function sampled(set: Samples, options: SampledOptions = {}): Instrument {
+  const volume = options.volume ?? 1, base = options.velocity ?? 100, extra = options.release ?? 0, releases = options.releases ?? true;
+  const resonance = options.resonance ?? 0, ring = options.ring ?? 3, transpose = options.transpose ?? 0;
+  if (!(volume >= 0)) throw new Error(`A sampled instrument's volume is 0 or more, not ${volume}.`);
+  if (!(base >= 1 && base <= 127)) throw new Error(`A sampled instrument's velocity is 1 to 127, not ${base}.`);
+  if (!(resonance >= 0 && resonance <= 2)) throw new Error(`A sampled instrument's resonance is 0 to 2, not ${resonance}.`);
+  if (set.zones.filter((z) => (z.trigger ?? "attack") === "attack").length === 0) throw new Error(`The instrument ${set.name || "given"} has no zone a key plays.`);
+  /** A zone's recording at `key`: moved to it, its own tuning undone. */
+  const pitched = (z: SampleZone, key: number) => (z.pitched === false ? 0 : key - z.key - (z.tune ?? 0) / 100);
+  /**
+   * A note: zone `z` at `key`, struck at `velocity`, let go after `held` seconds and dying away over `release`. The
+   * recording is cut to what is heard before it is moved in pitch, so a short note of a long recording costs little.
+   */
+  const voice = (z: SampleZone, key: number, velocity: number, held: number, release: number, rate?: number): Clip => {
+    const shift = pitched(z, key), speed = 2 ** (shift / 12);
+    const heard = held + release, need = Math.min(z.clip.seconds, heard * speed + 0.01);
+    let c = need < z.clip.seconds ? z.clip.trim(0, need) : z.clip;
+    if (Math.abs(shift) > 1e-6) c = c.pitch(shift);
+    if (held < c.seconds) {
+      // Down 60 dB over the release, as the dampers do: eight straight pieces of the curve.
+      const points: [number, number][] = [[0, 1], [held, 1]];
+      for (let j = 1; j <= 8; j++) points.push([held + (release * j) / 8, j === 8 ? 0 : dB((-60 * j) / 8)]);
+      c = c.envelope(...points);
+      if (c.seconds > heard) c = c.trim(0, heard);
+    }
+    const g = volume * dB(z.volume ?? 0) * velocityGain(velocity, z.veltrack ?? 1);
+    const made = g === 1 ? c : c.gain(g);
+    return rate === undefined || rate === made.rate ? made : mixdown([{ clip: made, at: 0 }], undefined, rate);
+  };
+  /** The sound of a key let go after `held` seconds, if the instrument has one for it. */
+  const letGo = (key: number, velocity: number, held: number, count: number): Clip | null => {
+    if (!releases) return null;
+    const list = zonesFor(set.zones, "release", key, velocity).filter((z) => key >= z.lo && key <= z.hi);
+    if (list.length === 0) return null;
+    // Each release zone of the key sounds: a piano's damper (one zone) and its strings settling (another).
+    const groups = new Map<string, SampleZone[]>();
+    for (const z of list) { const k = `${z.volume ?? 0}|${z.decay ?? 0}|${z.pitched}`; const g = groups.get(k); if (g) g.push(z); else groups.set(k, [z]); }
+    let out: Clip | null = null;
+    for (const g of groups.values()) {
+      const z = pick(g, count, 0), shift = pitched(z, key);
+      const level = volume * dB((z.volume ?? 0) - (z.decay ?? 0) * held) * velocityGain(velocity, z.veltrack ?? 1);
+      if (level < 1e-4) continue;
+      const c = (Math.abs(shift) > 1e-6 ? z.clip.pitch(shift) : z.clip).gain(level);
+      out = out ? out.mix(c) : c;
+    }
+    return out;
+  };
+  const releaseOf = (z: SampleZone) => (z.release ?? 0.3) + extra;
+  const midiOf = (name: string) => noteNumber(name) + transpose;
+  return Object.freeze({
+    kind: "notes" as const,
+    note: remembering((name, seconds, rate) => {
+      const key = midiOf(name), z = pick(zonesFor(set.zones, "attack", key, base), 0, 0);
+      return voice(z, key, base, seconds, releaseOf(z), rate);
+    }),
+    strike(name: string, seconds: number, velocity: number, rate?: number): Clip {
+      const key = midiOf(name), v = Math.max(1, Math.min(127, Math.round(velocity * base))), z = pick(zonesFor(set.zones, "attack", key, v), 0, 0);
+      return voice(z, key, v, seconds, releaseOf(z), rate);
+    },
+    together(notes: readonly Struck[], pedal: readonly (readonly [number, number])[], rate: number): Clip {
+      const order = [...notes].sort((a, b) => a.at - b.at);
+      const parts: { clip: Clip; at: number }[] = [];
+      const counts = new Map<number, number>();
+      let roll = 0x2545f491;
+      const random = () => { roll ^= roll << 13; roll ^= roll >>> 17; roll ^= roll << 5; return (roll >>> 0) / 4294967296; };
+      // When a note is let go for good: the key up, or the pedal up after it if the pedal was down then.
+      const damped = (t: number) => { for (const [down, up] of pedal) if (t >= down && t < up) return up; return t; };
+      order.forEach((n, k) => {
+        const key = n.pitch + transpose, v = Math.max(1, Math.min(127, Math.round(n.velocity)));
+        const count = counts.get(key) ?? 0;
+        counts.set(key, count + 1);
+        const z = pick(zonesFor(set.zones, "attack", key, v), count, random());
+        let off = damped(n.end), stolen = false, release = releaseOf(z);
+        // The same key struck again while it sounds: the sound before stops, quickly, under the new one — held by the
+        // pedal or still dying away after it was let go (a string struck again starts again).
+        for (let j = k + 1; j < order.length; j++) if (order[j].pitch === n.pitch && order[j].at > n.at) {
+          const next = order[j].at;
+          if (next < off) { off = next; stolen = true; release = 0.12; }
+          else if (next < off + release) release = Math.max(0.1, next - off + 0.1);
+          break;
+        }
+        const held = Math.max(0.005, off - n.at);
+        parts.push({ clip: voice(z, key, v, held, release, rate), at: n.at });
+        if (!stolen) { const r = letGo(key, v, held, count); if (r) parts.push({ clip: r, at: off }); }
+      });
+      // (A pedal down before 0 was put down, and comes up, in the excerpt before this one: no sound of it here.)
+      if (releases) for (const [down, up] of pedal) if (down >= 0) {
+        for (const [trigger, at] of [["pedal-down", down], ["pedal-up", up]] as const) {
+          const list = set.zones.filter((z) => z.trigger === trigger);
+          if (list.length === 0) continue;
+          const z = pick(list, 0, random());
+          parts.push({ clip: z.clip.gain(volume * dB(z.volume ?? 0)), at });
+        }
+      }
+      if (parts.length === 0) return mixdown([{ clip: noise(0.01, { volume: 0, rate }), at: 0 }], undefined, rate);
+      const mixed = mixdown(parts, undefined, rate);
+      return resonance > 0 && pedal.length > 0 ? mixed.resonance({ pedal, amount: resonance, decay: ring }) : mixed;
+    },
+  });
+}
+
 /**
  * Instruments to start from, each a function that takes the same options as the instrument it is made with, over its
  * own: `music.presets.supersaw({ volume: 0.1 })`.
@@ -229,7 +404,42 @@ export const presets = {
   bell: (o: Parameters<typeof fmSynth>[0] = {}) => fmSynth({ ratio: 3.5, index: 5, brightness: 0.08, bright: 1.6, volume: 0.16, decay: 2.5, sustain: 0, release: 1.2, ...o }),
   /** A plucked string, a little bright. */
   pluck: (o: Parameters<typeof strings>[0] = {}) => strings({ brightness: 0.6, decay: 1.4, ...o }),
+  /**
+   * A film trailer's "braam": five saws low and wide, the filter opening over half a second and closing slowly, driven
+   * hard — the brass section's blast as a synth. Play it low (A1 … A2), with the low brass on the same notes.
+   */
+  braam: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 5, detune: 16, width: 0.6, volume: 0.22, attack: 0.04, decay: 1.2, sustain: 0.7, release: 0.9, filter: { cutoff: 160, amount: 3.4, resonance: 0.25, envelope: { attack: 0.45, decay: 1.6, sustain: 0.35, release: 0.8 } }, drive: 14, ...o }),
+  /** A short synth pulse for sixteenth ostinatos: two squares, a quick filter blip. */
+  pulse: (o: SynthOptions = {}) => synth({ wave: "square", voices: 2, detune: 9, width: 0.4, volume: 0.12, attack: 0.002, decay: 0.09, sustain: 0.25, release: 0.04, filter: { cutoff: 900, amount: 2.2, resonance: 0.3, envelope: { decay: 0.08, sustain: 0.1 } }, ...o }),
+  /** A trance lead: seven saws a little apart, bright, a quick glide into each note — the melody on top of a drop. */
+  trance: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 7, detune: 18, width: 0.5, volume: 0.13, attack: 0.004, decay: 0.3, sustain: 0.85, release: 0.15, glide: -0.6, glideTime: 0.03, filter: { cutoff: 2600, amount: 1.4, resonance: 0.15, envelope: { decay: 0.3, sustain: 0.55 } }, ...o }),
+  /** A plucked synth for arpeggios: a saw whose filter snaps shut, a short tail. */
+  arp: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 2, detune: 10, width: 0.4, volume: 0.13, attack: 0.002, decay: 0.16, sustain: 0.08, release: 0.12, filter: { cutoff: 500, amount: 3.2, resonance: 0.25, envelope: { decay: 0.14, sustain: 0 } }, ...o }),
+  /** Supersaw chord stabs: wide, short, the filter open on the hit. */
+  stab: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 7, detune: 26, width: 0.8, volume: 0.11, attack: 0.003, decay: 0.22, sustain: 0.35, release: 0.15, filter: { cutoff: 1500, amount: 2.2, resonance: 0.12, envelope: { decay: 0.25, sustain: 0.3 } }, ...o }),
+  /** A sub bass: a sine, soft at the start, under everything. */
+  sub: (o: SynthOptions = {}) => synth({ wave: "sine", volume: 0.4, attack: 0.02, decay: 0.3, sustain: 0.9, release: 0.25, ...o }),
 };
+
+/**
+ * An instrument of one-shots: a clip a key ("C2": the impact, "D2": a riser), each played whole whatever the note's
+ * length and not moved in pitch, as loud as its velocity says — percussion and effects as parts of a performance
+ * (`perform`), beside the instruments that play notes: `music.hits({ C2: music.impact(), D2: music.riser(4) })`.
+ */
+export function hits(clips: Readonly<Record<string, Clip>>, options: { readonly volume?: number } = {}): Instrument {
+  const volume = options.volume ?? 1, byKey = new Map<number, Clip>();
+  for (const [name, clip] of Object.entries(clips)) byKey.set(noteNumber(name), clip);
+  const clipOf = (name: string) => {
+    const c = byKey.get(noteNumber(name));
+    if (!c) throw new Error(`hits() has no clip for ${name}: it has ${Object.keys(clips).join(", ")}.`);
+    return c;
+  };
+  return Object.freeze({
+    kind: "notes" as const,
+    note: (name: string) => (volume === 1 ? clipOf(name) : clipOf(name).gain(volume)),
+    strike: (name: string, _seconds: number, velocity: number) => clipOf(name).gain(volume * velocity),
+  });
+}
 
 /**
  * A drum kit made from nothing, a letter a drum: k kick, s snare, c clap, h closed hat, o open hat, t tom, r rim, x crash. At
@@ -425,6 +635,17 @@ export function riser(seconds: number, options: { readonly volume?: number; read
   return swept.mix(lift).envelope([0, 0], [s * 0.5, 0.25], [s * 0.9, 0.85], [s, 1]).fade(0, 0.01);
 }
 
+/**
+ * White noise through a filter sweeping over `seconds`: up (as left out) from a low rumble to bright hiss, growing
+ * louder, as a drop is built to; `down: true` the other way, falling and fading after it.
+ */
+export function sweep(seconds: number, options: { readonly down?: boolean; readonly volume?: number; readonly rate?: number } = {}): Clip {
+  const rate = options.rate ?? 44100, v = options.volume ?? 0.4, s = seconds, down = options.down === true;
+  const points: [number, number][] = down ? [[0, 12000], [s, 150]] : [[0, 150], [s * 0.7, 2500], [s, 14000]];
+  const shape: [number, number][] = down ? [[0, 1], [s, 0]] : [[0, 0], [s * 0.6, 0.35], [s, 1]];
+  return noise(s, { volume: v, rate }).filter("lowpass", points, { resonance: 0.3 }).envelope(...shape).fade(0.005, 0.01);
+}
+
 /** A boom to land on: a falling sine under a burst of noise, ringing `seconds` (1.5). */
 export function impact(options: { readonly seconds?: number; readonly volume?: number; readonly rate?: number } = {}): Clip {
   const rate = options.rate ?? 44100, v = options.volume ?? 0.8, s = options.seconds ?? 1.5;
@@ -604,6 +825,18 @@ function placed(t: Track, made: Map<Clip, Clip>, c: Clip): Clip {
   return p;
 }
 
+/**
+ * A note of a song as it sounds, at `rate` (the instrument's own when left out): a kit's letter or an instrument's note,
+ * struck at its velocity where the instrument knows how (`strike`), else made louder or quieter by it.
+ */
+function sounded(t: Track, n: Score, rate?: number): Clip {
+  if (n.hit) return n.velocity === 1 ? n.hit : n.hit.gain(n.velocity);
+  const inst = t.instrument as Instrument;
+  if (inst.strike) return inst.strike(n.name!, n.seconds!, n.velocity, rate);
+  const c = inst.note(n.name!, n.seconds!, rate);
+  return n.velocity === 1 ? c : c.gain(n.velocity);
+}
+
 /** What a song's notes are, kept for render, which makes them again at its own rate; `piece`, the section whose effects it goes through. */
 interface Score { readonly at: number; readonly track: Track; readonly made: Map<Clip, Clip>; readonly velocity: number; readonly piece?: Piece; readonly name?: string; readonly seconds?: number; readonly hit?: Clip }
 const scores = new WeakMap<object, readonly Score[]>();
@@ -693,12 +926,11 @@ function compose(options: SongOptions, tracks: readonly Track[], sections: reado
     });
   }
   score.sort((a, b) => a.at - b.at);
-  const base = (n: Score) => n.hit ?? (n.track.instrument as Instrument).note(n.name!, n.seconds!);
   // The tables `play` reads, made when they are first read: a song only rendered never makes its notes for the game.
   let table: { clips: readonly Clip[]; at: readonly number[]; which: readonly number[]; voices: number; peakStep: number; frames: number } | null = null;
   const tables = () => {
     if (table) return table;
-    const notes = score.map((n) => ({ at: Math.round(n.at), clip: placed(n.track, n.made, n.velocity === 1 ? base(n) : base(n).gain(n.velocity)) }));
+    const notes = score.map((n) => ({ at: Math.round(n.at), clip: placed(n.track, n.made, sounded(n.track, n)) }));
     // How many sound at once: at each note's start, those started before it and not yet over.
     let voices = 0, peakStep = 0;
     notes.forEach((n, k) => {
@@ -791,6 +1023,291 @@ export function midi(notes: Notes, parts: Readonly<Record<string, Instrument | K
   return compose({ ...options, bpm: options.bpm ?? notes.bpm, beats: options.beats ?? notes.beats }, tracks, []);
 }
 
+/* ── A performance: notes at their own times, not on a grid ── */
+
+/** A note of a performance, as it was played: what a picture that follows the music needs. */
+export interface PerformedNote {
+  /** Seconds from the start it is struck, and let go (the key up; the pedal may hold it on). */
+  readonly at: number;
+  readonly end: number;
+  /** Its key (60 is C4), and its name ("C4", sharps). */
+  readonly pitch: number;
+  readonly note: string;
+  /** How hard, 1 … 127. */
+  readonly velocity: number;
+  /** The part that plays it ("right", "left": what `perform` named it), and its place in its chord, 0 the lowest. */
+  readonly part: string;
+  readonly voice: number;
+  /** The bar it is in (1 the first whole bar, 0 a pickup before it), and where in the bar, in beats of the meter from 0. */
+  readonly bar: number;
+  readonly beat: number;
+  /** The game's frame it is struck on (42 ms on Fastest), from the start. */
+  readonly frame: number;
+}
+
+/** Music played, not on a grid: made by `perform`, mixed by `render`. */
+export interface Performance {
+  readonly kind: "performance";
+  /** Every note in the order they are struck. */
+  readonly notes: readonly PerformedNote[];
+  /** The sustain pedal: [down, up] in seconds, each part's that writes it. */
+  readonly pedal: readonly (readonly [number, number])[];
+  /** Seconds each bar begins: [0] the pickup's start (0), [1] bar 1's. */
+  readonly bars: readonly number[];
+  /** The parts, in the order given. */
+  readonly parts: readonly string[];
+  /** Seconds from the first note to the last let go (the pedal's and the notes' rings come after). */
+  readonly seconds: number;
+}
+
+/** A part of a performance: who plays it, what, and how it is heard (as a track is, `PartOptions`). */
+export interface PerformPart extends PartOptions {
+  readonly instrument: Instrument;
+  /** What it plays, written as `perform` reads it: one text, or a text a bar. */
+  readonly notes: Pattern;
+  /** Seconds it plays ahead of the beat (a melody a little before its accompaniment, as pianists play): 0.01. A negative number: behind. */
+  readonly lead?: number;
+  /** Its velocities times this (1). */
+  readonly velocity?: number;
+}
+
+/** A performance's meter, tempo and feel. */
+export interface PerformOptions {
+  /** The bar: "3/8", "4/4" (as left out), "6/8". The tempo counts its beats: 3/8 counts eighths. */
+  readonly meter?: string;
+  /** Beats a minute: what the meter counts. */
+  readonly bpm: number;
+  /** How long a pickup before bar 1 lasts: "1/8", "3/16". */
+  readonly pickup?: string;
+  /**
+   * The tempo through the piece: [bar, bpm] points, the bar from 1 (8.5 halfway through bar 8; 0.5 inside the pickup);
+   * between two points it changes evenly, before the first and after the last it stays. Two points at one bar: a step.
+   * A phrase that slows into its end: [[1, 132], [7, 132], [8.5, 108], [9, 132]].
+   */
+  readonly tempo?: readonly (readonly [number, number])[];
+  /** Pauses: [bar, seconds] — a breath before a phrase, a fermata. Everything from that point on comes that much later. */
+  readonly holds?: readonly (readonly [number, number])[];
+  /** A player's unevenness, the same on every build: `time` seconds either way (about), `velocity` (about), `seed`. */
+  readonly humanize?: { readonly time?: number; readonly velocity?: number; readonly seed?: number };
+}
+
+/** Ticks a whole note: room for halves, thirds, fifths down to a sixty-fourth. */
+const WHOLE = 1920;
+const DYNAMICS: Readonly<Record<string, number>> = { ppp: 20, pp: 32, p: 46, mp: 60, mf: 74, f: 90, ff: 106, fff: 120 };
+
+/** A length as written after "/": "8" an eighth, "8." dotted, "16t" a sixteenth of a triplet. In ticks. */
+function lengthOf(text: string, where: string): number {
+  const m = /^(1|2|4|8|16|32|64)(t?)(\.{0,2})$/.exec(text);
+  if (!m) throw new Error(`${where}: a length is 1, 2, 4, 8, 16, 32 or 64, then t for a triplet's, then a dot or two — "8", "8.", "16t" — not ${JSON.stringify(text)}.`);
+  let t = WHOLE / Number(m[1]);
+  if (m[2]) t = (t * 2) / 3;
+  if (m[3].length === 1) t *= 1.5;
+  if (m[3].length === 2) t *= 1.75;
+  return t;
+}
+
+/** One part's text, read: its notes in ticks, its pedal in ticks, its dynamics. */
+interface ReadNote { readonly tick: number; readonly length: number; readonly pitch: number; readonly velocity: number; readonly voice: number; readonly staccato: boolean }
+function readPart(name: string, text: Pattern, barTicks: number, pickup: number, meter: string): { notes: ReadNote[]; pedal: [number, number | null][] } {
+  const words = typeof text === "string" ? wordsOf2(text) : text.flatMap((bar, k) => (k === 0 ? wordsOf2(bar) : ["|", ...wordsOf2(bar)]));
+  const notes: { tick: number; length: number; pitch: number; at: number | null; rel: number; accent: boolean; voice: number; staccato: boolean; tie: boolean }[] = [];
+  const marks: { tick: number; level: number }[] = [], hairpins: number[] = [];
+  const pedal: [number, number | null][] = [];
+  let tick = 0, length = WHOLE / 4, level = DYNAMICS.mf, bar = pickup > 0 ? 0 : 1, line = 0;
+  const open = new Map<number, number>();
+  const where = () => `${name}, ${bar === 0 ? "the pickup" : `bar ${bar}`}`;
+  marks.push({ tick: 0, level });
+  for (const w of words) {
+    if (w === "|") {
+      // The first bar line ends the pickup, when there is one; every other, a bar.
+      const first = bar === 0, want = first ? pickup : barTicks, sixteenth = WHOLE / 16;
+      if (tick - line !== want) throw new Error(`${where()} is ${(tick - line) / sixteenth} sixteenths long; ${first ? "the pickup is" : `a bar of ${meter} is`} ${want / sixteenth}.`);
+      line = tick;
+      bar = bar + 1;
+      continue;
+    }
+    if (w in DYNAMICS) { level = DYNAMICS[w]; marks.push({ tick, level }); continue; }
+    if (w === "<" || w === ">") { hairpins.push(tick); continue; }
+    if (w === "ped") {
+      const last = pedal[pedal.length - 1];
+      if (last && last[1] === null) last[1] = tick;
+      pedal.push([tick, null]);
+      continue;
+    }
+    if (w === "*") {
+      const last = pedal[pedal.length - 1];
+      if (!last || last[1] !== null) throw new Error(`${where()}: "*" lifts the pedal, which is not down ("ped" puts it down).`);
+      last[1] = tick;
+      continue;
+    }
+    const m = /^(r|[A-Ga-g][#b]?-?\d(?:\+[A-Ga-g][#b]?-?\d)*)(?:\/([0-9]+t?\.{0,2}))?(?:@([+-]?\d+))?(['!~]*)$/.exec(w);
+    if (!m) throw new Error(`${where()}: ${JSON.stringify(w)} is no note — a note is a name and octave, "E5", chords joined by +, "A3+C4"; then /8 for its length (as the last when left out), @90 or @+10 for how hard, ' for staccato, ! for an accent, ~ to tie it to the next; "r" a rest; "pp" … "ff" the dynamics, "<" and ">" towards the next; "ped" and "*" the pedal; "|" a bar line.`);
+    if (m[2] !== undefined) length = lengthOf(m[2], where());
+    if (m[1] !== "r") {
+      const pitches = m[1].split("+").map(noteNumber).sort((a, b) => a - b);
+      const flags = m[4] ?? "";
+      pitches.forEach((pitch, voice) => {
+        // A note tied from the one before is not struck again: the one before lasts longer.
+        const tied = open.get(pitch);
+        if (tied !== undefined && notes[tied].tick + notes[tied].length === tick) {
+          notes[tied].length += length;
+          if (!flags.includes("~")) open.delete(pitch);
+          return;
+        }
+        const rel = m[3] === undefined ? 0 : Number(m[3]), absolute = m[3] !== undefined && !/^[+-]/.test(m[3]);
+        notes.push({ tick, length, pitch, at: absolute ? rel : null, rel: absolute ? 0 : rel, accent: flags.includes("!"), voice, staccato: flags.includes("'"), tie: flags.includes("~") });
+        if (flags.includes("~")) open.set(pitch, notes.length - 1);
+      });
+    }
+    tick += length;
+  }
+  // The level at a tick: the last mark's, or on its way from it to the next mark where a hairpin starts between them.
+  const levelAt = (t: number) => {
+    let k = 0;
+    while (k + 1 < marks.length && marks[k + 1].tick <= t) k++;
+    const from = marks[k], to = marks[k + 1];
+    const pin = hairpins.find((h) => h >= from.tick && (!to || h < to.tick));
+    if (!to || pin === undefined || t < pin) return from.level;
+    return from.level + ((to.level - from.level) * (t - pin)) / Math.max(1, to.tick - pin);
+  };
+  return {
+    notes: notes.map((n) => {
+      const v = n.at !== null ? n.at : levelAt(n.tick) + n.rel + (n.accent ? 12 : 0);
+      return { tick: n.tick, length: n.length, pitch: n.pitch, velocity: Math.max(1, Math.min(127, v)), voice: n.voice, staccato: n.staccato };
+    }),
+    pedal,
+  };
+}
+/** A text's words, "|" kept (a bar line is checked in a performance). */
+const wordsOf2 = (t: string): string[] => t.split(/\s+/).filter((w) => w !== "");
+
+/**
+ * Music played as a person plays it, not on a grid: each part's notes written as a score has them — their own lengths,
+ * dynamics, the pedal — and played at a tempo that moves (`tempo`, `holds`), each note at its own time and strength.
+ *
+ *   const take = music.perform({ meter: "3/8", bpm: 132, pickup: "1/8", tempo: [[1, 132], [7, 132], [8, 112]] }, {
+ *     right: { instrument: piano, notes: ["pp E5/16 D#5", "E5 D#5 E5 B4 D5 C5", "A4/8 r/16 C4 E4 A4"] },
+ *     left:  { instrument: piano, notes: ["r/8", "r/4.", "ped A2/16 E3 A3 r/16 r/8 *"] },
+ *   });
+ *   playWav(music.render(take, { reverb: { decay: 0.85 } }));
+ *
+ * A note is its name and octave ("E5", "F#4", "Bb2"; a chord "A3+C4+E4"), then its length after "/" — 1, 2, 4, 8, 16,
+ * 32 or 64, "t" for a triplet's, a dot or two ("8." a dotted eighth) — the last one's when left out; "@90" how hard
+ * (1 … 127), "@+10" or "@-10" against the dynamic; then ' to play it short, ! to accent it, ~ to tie it to the same note
+ * next. "r" is a rest. "pp", "p", "mp", "mf", "f", "ff" (and ppp, fff) set how hard what follows is struck, "<" and ">"
+ * move there evenly from where they stand to the next mark. "ped" puts the sustain pedal down (again, while it is down:
+ * lifts it and puts it down at once), "*" lifts it: an instrument holds every note let go while it is down, and a
+ * performance's parts on the same instrument share it. "|" is a bar line, checked: a part whose bar is too long or
+ * short is refused, by its bar. A text a bar puts the bar lines between the texts.
+ *
+ * What comes back says when each note is struck, how hard and by which part (`notes`), where each bar begins and where
+ * the pedal is — for a picture that follows the music — and `render` mixes it into one clip.
+ */
+export function perform(options: PerformOptions, parts: Readonly<Record<string, PerformPart>>): Performance {
+  const meter = options.meter ?? "4/4", mm = /^(\d+)\/(1|2|4|8|16)$/.exec(meter);
+  if (!mm || Number(mm[1]) < 1) throw new Error(`A meter is beats over the note that counts them, "3/8", "4/4", "6/8" — not ${JSON.stringify(meter)}.`);
+  const beatTicks = WHOLE / Number(mm[2]), barTicks = Number(mm[1]) * beatTicks;
+  if (!(options.bpm > 0)) throw new Error(`perform() takes a tempo, { bpm: 120 }: beats a minute, the meter's (3/8 counts eighths) — not ${options.bpm}.`);
+  const pickup = options.pickup ? (() => { const p = /^1\/(\d+)$/.exec(options.pickup!) ?? /^(\d+)\/(\d+)$/.exec(options.pickup!); if (!p) throw new Error(`A pickup is a length, "1/8", "3/16" — not ${JSON.stringify(options.pickup)}.`); return p.length === 2 ? WHOLE / Number(p[1]) : (WHOLE * Number(p[1])) / Number(p[2]); })() : 0;
+  const names = Object.keys(parts);
+  if (names.length === 0) throw new Error("perform() takes its parts, one at least: { right: { instrument: piano, notes: \"…\" } }.");
+  const read = names.map((k) => ({ name: k, part: parts[k], ...readPart(k, parts[k].notes, barTicks, pickup, meter) }));
+  const lastTick = Math.max(barTicks, ...read.flatMap((r) => [...r.notes.map((n) => n.tick + n.length), ...r.pedal.map(([a, b]) => Math.max(a, b ?? a))])) + barTicks;
+  // Ticks to seconds: the tempo at each tick, added up; the holds where they fall.
+  const barTick = (b: number) => (b <= 1 ? pickup * b : pickup + (b - 1) * barTicks);
+  const points = (options.tempo ?? []).map(([b, bpm]) => {
+    if (!(bpm > 0)) throw new Error(`A tempo point is [bar, beats a minute], the tempo more than 0 — not ${bpm}.`);
+    return [barTick(b), bpm] as const;
+  }).sort((a, b) => a[0] - b[0]);
+  const bpmAt = (t: number) => {
+    if (points.length === 0) return options.bpm;
+    if (t <= points[0][0]) return points[0][1];
+    for (let k = 1; k < points.length; k++) if (t < points[k][0]) { const [t0, v0] = points[k - 1], [t1, v1] = points[k]; return v0 + ((v1 - v0) * (t - t0)) / (t1 - t0); }
+    return points[points.length - 1][1];
+  };
+  const holds = (options.holds ?? []).map(([b, sec]) => { if (!(sec >= 0)) throw new Error(`A hold is [bar, seconds], 0 or more — not ${sec}.`); return [barTick(b), sec] as const; });
+  const secs: number[] = [0];
+  for (let t = 0; t < lastTick; t++) {
+    let next = secs[t] + 60 / (bpmAt(t + 0.5) * beatTicks);
+    for (const [ht, sec] of holds) if (Math.floor(ht) === t + 1) next += sec;
+    secs.push(next);
+  }
+  const timeOf = (tick: number) => { const t = Math.max(0, Math.min(lastTick, tick)), k = Math.floor(t); return k >= lastTick ? secs[lastTick] : secs[k] + (secs[k + 1] - secs[k]) * (t - k); };
+  // A player's unevenness: the same numbers every build.
+  const h = options.humanize ?? {}, spread = h.time ?? 0, vspread = h.velocity ?? 0;
+  let seed = (h.seed ?? 1) * 2654435761 >>> 0 || 1;
+  const random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+  const wobble = () => (random() + random() + random() - 1.5) / 0.5;
+  const out: PerformedNote[] = [], pedalOf = new Map<Instrument, [number, number][]>(), allPedal: [number, number][] = [];
+  let first = Infinity;
+  for (const r of read) {
+    const lead = r.part.lead ?? 0, scale = r.part.velocity ?? 1;
+    for (const n of r.notes) {
+      const at = timeOf(n.tick) - lead + spread * wobble(), end = timeOf(n.tick + (n.staccato ? n.length / 2 : n.length)) - lead;
+      const v = Math.max(1, Math.min(127, Math.round(n.velocity * scale + vspread * wobble())));
+      const bar = n.tick < pickup ? 0 : Math.floor((n.tick - pickup) / barTicks) + 1;
+      const beat = (n.tick - (bar === 0 ? 0 : barTick(bar))) / beatTicks;
+      out.push({ at, end: Math.max(end, at + 0.02), pitch: n.pitch, note: nameOf(n.pitch), velocity: v, part: r.name, voice: n.voice, bar, beat, frame: 0 });
+      first = Math.min(first, at);
+    }
+    const list = pedalOf.get(r.part.instrument) ?? [];
+    for (const [down, up] of r.pedal) {
+      // A "ped" while the pedal is down: lifted and put down again 60 ms later, as a foot changes it.
+      const a = timeOf(down), b = up === null ? null : timeOf(up);
+      const changed = list.length > 0 && Math.abs(list[list.length - 1][1] - a) < 1e-9;
+      list.push([changed ? a + 0.06 : a, b ?? Infinity]);
+    }
+    pedalOf.set(r.part.instrument, list);
+  }
+  // Nothing before 0: a lead or a wobble at the very start moves everything a little later.
+  const shift = first < 0 ? -first : 0;
+  const notes = out.map((n) => Object.freeze({ ...n, at: n.at + shift, end: n.end + shift, frame: Math.round((n.at + shift) / FRAME) })).sort((a, b) => a.at - b.at || a.pitch - b.pitch);
+  const seconds = Math.max(0, ...notes.map((n) => n.end));
+  for (const [inst, list] of pedalOf) {
+    // A pedal never lifted comes up three seconds after the last note is let go: the end rings.
+    const fixed = list.map(([a, b]) => [a + shift, Number.isFinite(b) ? b + shift : seconds + 3] as [number, number]);
+    pedalOf.set(inst, fixed);
+    allPedal.push(...fixed);
+  }
+  const bars = [0, ...Array.from({ length: Math.ceil((lastTick - pickup) / barTicks) }, (_, k) => timeOf(pickup + k * barTicks) + shift)];
+  const made: Performance = Object.freeze({
+    kind: "performance" as const, notes: Object.freeze(notes), pedal: Object.freeze(allPedal.sort((a, b) => a[0] - b[0]).map((p) => Object.freeze(p))),
+    bars: Object.freeze(bars), parts: Object.freeze(names), seconds,
+  });
+  performances.set(made, { parts: read.map((r) => ({ name: r.name, part: r.part })), pedal: pedalOf });
+  return made;
+}
+
+/**
+ * The part of a performance from bar `from` up to bar `to` (not included; to its end when left out), bars as
+ * `performance.bars` counts them, as a performance from 0 of its own: the notes struck in it, their times from its
+ * start, and the pedal — down already when the pedal went down before it (its sound is the excerpt's before), held to
+ * where it comes up. Render a long piece a section at a time, each with its room, its tail ringing on under the next
+ * when the sections are added up at their `at`s: `music.render(music.excerpt(take, 44, 60), { reverb: ROOM })`.
+ */
+export function excerpt(p: Performance, from: number, to?: number): Performance & { readonly at: number } {
+  const inside = performances.get(p);
+  if (!inside) throw new Error("excerpt() takes a performance made by music.perform.");
+  const last = p.bars.length - 1;
+  if (!(Number.isInteger(from) && from >= 0 && from <= last)) throw new Error(`excerpt() starts on a bar, 0 to ${last}, not ${from}.`);
+  if (to !== undefined && !(Number.isInteger(to) && to > from && to <= last)) throw new Error(`excerpt() ends on a bar after ${from}, at most ${last}, not ${to}.`);
+  const a = p.bars[from], b = to === undefined ? Infinity : p.bars[to];
+  const notes = p.notes.filter((n) => n.at >= a - 1e-9 && n.at < b - 1e-9).map((n) => Object.freeze({ ...n, at: n.at - a, end: n.end - a, frame: Math.round((n.at - a) / FRAME) }));
+  const clip = (list: readonly (readonly [number, number])[]) => list.filter(([d, u]) => u > a && d < b).map(([d, u]) => [d - a, u - a] as [number, number]);
+  const pedal = new Map<Instrument, [number, number][]>();
+  for (const [inst, list] of inside.pedal) pedal.set(inst, clip(list));
+  const made = Object.freeze({
+    kind: "performance" as const, at: a, notes: Object.freeze(notes), pedal: Object.freeze(clip(p.pedal).map((x) => Object.freeze(x))),
+    bars: Object.freeze(p.bars.slice(from, to === undefined ? undefined : to + 1).map((t) => t - a)), parts: p.parts,
+    seconds: Math.max(0, ...notes.map((n) => n.end)),
+  });
+  performances.set(made, { parts: inside.parts, pedal });
+  return made;
+}
+
+/** What `render` needs of a performance besides what it shows: its parts as given, and each instrument's pedal. */
+const performances = new WeakMap<Performance, { readonly parts: readonly { readonly name: string; readonly part: PerformPart }[]; readonly pedal: Map<Instrument, [number, number][]> }>();
+
 /** The song's reverb in `render`, as `Clip.reverb` takes it, the dry part left out. */
 export interface ReverbOptions { readonly decay?: number; readonly damping?: number; readonly predelay?: number; readonly width?: number }
 
@@ -804,8 +1321,85 @@ export interface ReverbOptions { readonly decay?: number; readonly damping?: num
  * −1.5 dB however the parts add, between the samples too: `limit: false` leaves it as mixed, `{ ceiling, release }` sets it. A long clip a
  * program plays goes in the map as Ogg Vorbis, two channels when it has two.
  */
-export function render(s: Song, options: { readonly rate?: number; readonly limit?: boolean | { readonly ceiling?: number; readonly release?: number }; readonly reverb?: ReverbOptions; readonly master?: (mix: Clip) => Clip } = {}): Clip {
-  const rate = options.rate ?? 44100, score = scores.get(s), least = s.steps * s.stepFrames * FRAME;
+export function render(s: Song | Performance, options: RenderOptions = {}): Clip {
+  const rate = options.rate ?? 44100;
+  let mixed: Clip;
+  if ("kind" in s && s.kind === "performance") mixed = mixPerformance(s, rate, options);
+  else mixed = mixSong(s as Song, rate, options);
+  if (options.master) mixed = options.master(mixed);
+  if (options.loudness !== undefined) mixed = mixed.loudness(options.loudness);
+  const limit = options.limit ?? true;
+  return limit === false ? mixed : mixed.limit(limit === true ? {} : limit);
+}
+
+/** How `render` mixes. */
+export interface RenderOptions {
+  /** Samples a second (44 100). */
+  readonly rate?: number;
+  /** The limiter last (true), its ceiling and release, or false for none. */
+  readonly limit?: boolean | { readonly ceiling?: number; readonly release?: number };
+  /** The room the parts' `reverb` sends go to. */
+  readonly reverb?: ReverbOptions;
+  /** What the whole mix goes through before the limiter. */
+  readonly master?: (mix: Clip) => Clip;
+  /** LUFS the mix is brought to before the limiter (`Clip.loudness`): −16 for a piano on its own, −14 a band. */
+  readonly loudness?: number;
+  /** A performance's parts to mix, by name — the rest left out: stems, a melody apart from what is under it. */
+  readonly parts?: readonly string[];
+}
+
+/** The parts of a mix as `render` adds them up: each part, and what it sends to the shared reverb. */
+function withReverb(parts: { clip: Clip; at: number }[], sends: { clip: Clip; at: number }[], least: number, rate: number, room: ReverbOptions | undefined): Clip {
+  if (sends.length) {
+    const r = room ?? {};
+    parts.push({ clip: mixdown(sends, least, rate).reverb({ decay: r.decay ?? 0.7, damping: r.damping ?? 0.45, predelay: r.predelay ?? 0.02, width: r.width ?? 1, mix: 1, dry: 0 }), at: 0 });
+  }
+  return mixdown(parts, least, rate);
+}
+
+/**
+ * A performance mixed: the notes of the parts that share an instrument played by it together — both hands on one
+ * piano, one pedal, a key struck by either hand — and heard as the first of those parts says; then as a song's parts are.
+ */
+function mixPerformance(p: Performance, rate: number, options: RenderOptions): Clip {
+  const inside = performances.get(p);
+  if (!inside) throw new Error("render() takes a performance made by music.perform.");
+  const parts: { clip: Clip; at: number }[] = [], sends: { clip: Clip; at: number }[] = [];
+  const done = new Set<Instrument>();
+  const only = options.parts;
+  if (only) for (const k of only) if (!inside.parts.some((x) => x.name === k)) throw new Error(`render(): the performance has no part ${JSON.stringify(k)}: its parts are ${inside.parts.map((x) => x.name).join(", ")}.`);
+  for (const { name: first, part } of inside.parts) {
+    if (only && !only.includes(first)) continue;
+    const inst = part.instrument;
+    if (done.has(inst)) continue;
+    done.add(inst);
+    const names = inside.parts.filter((x) => x.part.instrument === inst && (!only || only.includes(x.name))).map((x) => x.name);
+    const own = p.notes.filter((n) => names.includes(n.part));
+    if (own.length === 0) continue;
+    const pedal = inside.pedal.get(inst) ?? [];
+    let clip: Clip;
+    if (inst.together) clip = inst.together(own.map((n) => ({ at: n.at, end: n.end, pitch: n.pitch, velocity: n.velocity })), pedal, rate);
+    else {
+      // An instrument that plays note by note: each held as long as the key, or the pedal, holds it.
+      const held = (n: PerformedNote) => { let off = n.end; for (const [down, up] of pedal) if (off >= down && off < up) off = up; return off - n.at; };
+      clip = mixdown(own.map((n) => ({ clip: (inst.strike ? inst.strike(n.note, held(n), n.velocity / 100, rate) : inst.note(n.note, held(n), rate).gain(n.velocity / 100)), at: n.at })), undefined, rate);
+    }
+    if (part.fx) clip = part.fx(clip);
+    if ((part.volume ?? 1) !== 1) clip = clip.gain(part.volume ?? 1);
+    if ((part.pan ?? 0) !== 0) clip = clip.pan(part.pan ?? 0);
+    parts.push({ clip, at: 0 });
+    if ((part.reverb ?? 0) > 0) sends.push({ clip: clip.gain(part.reverb ?? 0), at: 0 });
+  }
+  if (parts.length === 0) {
+    if (only) return mixdown([{ clip: noise(0.01, { volume: 0, rate }), at: 0 }], p.seconds || 0.01, rate);
+    throw new Error("render(): the performance plays no notes.");
+  }
+  return withReverb(parts, sends, p.seconds, rate, options.reverb);
+}
+
+/** A song mixed, as a mixing desk does. */
+function mixSong(s: Song, rate: number, options: RenderOptions): Clip {
+  const score = scores.get(s), least = s.steps * s.stepFrames * FRAME;
   let mixed: Clip;
   if (!score) {
     // (A song from elsewhere, without its score: its own clips, at their rate.)
@@ -815,7 +1409,7 @@ export function render(s: Song, options: { readonly rate?: number; readonly limi
     const byTrack = new Map<Track, Score[]>();
     for (const n of score) { const list = byTrack.get(n.track); if (list) list.push(n); else byTrack.set(n.track, [n]); }
     for (const [t, notes] of byTrack) {
-      const clipOf = (n: Score) => { const c = n.hit ?? (t.instrument as Instrument).note(n.name!, n.seconds!, rate); return n.velocity === 1 ? c : c.gain(n.velocity); };
+      const clipOf = (n: Score) => sounded(t, n, rate);
       // The notes as they are, and each section's that has effects of its own mixed apart and through them.
       const entries: { clip: Clip; at: number }[] = [], apart = new Map<Piece, Score[]>();
       for (const n of notes) {
@@ -834,15 +1428,9 @@ export function render(s: Song, options: { readonly rate?: number; readonly limi
       parts.push({ clip: part, at: 0 });
       if (t.reverb > 0) sends.push({ clip: part.gain(t.reverb), at: 0 });
     }
-    if (sends.length) {
-      const r = options.reverb ?? {};
-      parts.push({ clip: mixdown(sends, least, rate).reverb({ decay: r.decay ?? 0.7, damping: r.damping ?? 0.45, predelay: r.predelay ?? 0.02, width: r.width ?? 1, mix: 1, dry: 0 }), at: 0 });
-    }
-    mixed = mixdown(parts, least, rate);
+    mixed = withReverb(parts, sends, least, rate, options.reverb);
   }
-  if (options.master) mixed = options.master(mixed);
-  const limit = options.limit ?? true;
-  return limit === false ? mixed : mixed.limit(limit === true ? {} : limit);
+  return mixed;
 }
 
 /* ── Music that follows the game: a song cut into pieces, played piece by piece ── */
@@ -952,7 +1540,7 @@ export function stems(s: Song, options: StemsOptions): Stems {
     const m = cells[g][l], list = m.get(n.track);
     if (list) list.push(n); else m.set(n.track, [n]);
   }
-  const clipOf = (t: Track, n: Score) => { const c = n.hit ?? (t.instrument as Instrument).note(n.name!, n.seconds!, rate); return n.velocity === 1 ? c : c.gain(n.velocity); };
+  const clipOf = (t: Track, n: Score) => sounded(t, n, rate);
   // Each layer's last piece with notes: it rings out whole, as the song ends.
   const last = layers.map((_, l) => { let g = total - 1; while (g > 0 && cells[g][l].size === 0) g--; return g; });
   // A piece of a layer, mixed: each part's notes from where it begins, through what the part goes through, and the reverb.
@@ -1173,6 +1761,6 @@ export const loop = game(async (s: Song) => {
 
 /** Everything above as one name: import { music } from "trigscript/music"; music.play(song). */
 export const music = {
-  sampler, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
+  sampler, sampled, perform, excerpt, hits, sweep, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
   part, section, arrange, transpose, stretch, repeat, beat, chord, over, chords, bars, pump, riser, impact, midi, stems, conduct,
 };

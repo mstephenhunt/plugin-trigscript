@@ -28,6 +28,7 @@ import type { GameTestReport } from "../compiler/gameTests";
 import type { TestReport, TestWorld } from "../compiler/testing";
 import { defaultLib } from "../bundle/lib.mjs";
 import { scriptFiles } from "./script-files.mts";
+import { isMediaFile } from "../compiler/media";
 import { shortMs } from "../compiler/gameCost";
 import { MOST_MS, SMOOTH_MS } from "../compiler/remasteredCost";
 
@@ -72,6 +73,8 @@ try {
   // The tests in the simulator over the map's own world, as the editor runs them; then in the game, the way a host
   // of the game runs them: the compile's JavaScript handed to dist/gametest.js, loaded from its text.
   const source = scriptFiles(script);
+  // (The script's media, for its modules run again beside the game: an import of a .sound or .samples gives its value.)
+  const media = Object.entries(source).filter(([path]) => isMediaFile(path)) as [string, string][];
   const names = defaultScriptNames();
   // (The locations from the game once the start-up has run: a build through eudplib kept them scrambled in the file.)
   const locations = readLocations(handle);
@@ -87,7 +90,7 @@ try {
   const triggerMap = JSON.parse(readFileSync(built.replace(/\.scx$/, ".triggers.json"), "utf8"));
   if (errorAddress !== null) {
     const frames = Number(flag("frames") ?? 3000);
-    const traced = host.runGameTests(handle, { modules: compiled.modules ?? [], names, locations, variables, triggers: triggerMap, trace: true, play: frames }) as GameTestReport;
+    const traced = host.runGameTests(handle, { modules: compiled.modules ?? [], names, locations, variables, triggers: triggerMap, trace: true, play: frames, media }) as GameTestReport;
     if (traced.error || traced.traceError || !traced.trace) { console.error(`not traced: ${traced.error ?? traced.traceError ?? "no trace came back"}`); process.exit(1); }
     const list = JSON.parse(readFileSync(join(root, "data", "allowlist.json"), "utf8")) as Allowlist;
     const a = findEudError(errorAddress, traced.trace.rows, list);
@@ -98,7 +101,7 @@ try {
     if (!a.lines.length && !(a.unlined.exact + a.unlined.field)) console.log("  nothing in the run touched it");
     process.exit(0);
   }
-  const inGame = host.runGameTests(handle, { modules: compiled.modules, names, locations, variables, triggers: triggerMap }) as TestReport & { error?: string };
+  const inGame = host.runGameTests(handle, { modules: compiled.modules, names, locations, variables, triggers: triggerMap, media }) as TestReport & { error?: string };
   if (inGame.error) { console.error(`the script did not run beside the game: ${inGame.error}`); process.exit(1); }
   const bySim = new Map((simulated?.results ?? []).map((r) => [r.id, r]));
   let failed = 0;

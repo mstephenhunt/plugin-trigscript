@@ -440,6 +440,7 @@ export const KO: Record<string, string> = {
   "Stop": "정지",
   "Rate": "샘플링 속도",
   "Kept in mono, as the game's own sounds are. A program plays it with playWav(); clips made from it — trim, gain, pitch — are made when the script is built.": "게임의 소리처럼 모노로 저장합니다. program에서 playWav()로 재생하고, 이것으로 만든 클립(trim, gain, pitch)은 스크립트를 빌드할 때 만들어집니다.",
+  "Import it with import {name} from \"./{file}\", play it with music.sampled({name}).": "import {name} from \"./{file}\"로 가져오고 music.sampled({name})로 연주합니다.",
   "{seconds} seconds at {rate} Hz{from}. Import it with import {name} from \"./{file}\", play it with playWav({name}).": "{seconds}초, {rate} Hz{from}. import {name} from \"./{file}\"로 가져오고 playWav({name})로 재생합니다.",
   "{path} is in the script: import {name} from \"./{path}\"; then music.midi({name}, { … }) makes a song of its tracks.": "{path}이(가) 스크립트에 들어갔습니다. import {name} from \"./{path}\"로 가져오면 music.midi({name}, { … })가 그 트랙들로 곡을 만듭니다.",
   "{tracks} tracks, {notes} notes, {bpm} beats a minute ({time}).": "트랙 {tracks}개, 음표 {notes}개, 분당 {bpm}박 ({time}).",

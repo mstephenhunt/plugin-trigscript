@@ -60,10 +60,10 @@ import { DEBUG_STYLE, Debugger, type DebugGameView } from "./debugger";
 import type { DebugRecording } from "./compiler/gameDebug";
 import type { ScmSimDebugView } from "./vendor/scmSim";
 import type { Translate } from "./i18n";
-import { describeMedia, isImageFile, isMediaFile, isNotesFile, isSoundFile } from "./compiler/media";
+import { describeMedia, isImageFile, isMediaFile, isNotesFile, isSamplesFile, isSoundFile } from "./compiler/media";
 import { importMedia, showImage, showVideo } from "./videoImport";
 import { isSoundSource, showSound } from "./soundImport";
-import { isMidiSource, showNotes } from "./notesImport";
+import { isMidiSource, showNotes, showSamples } from "./notesImport";
 
 export const TEMPLATE = `// TrigScript: ordinary TypeScript that runs when you build. Every trigger() call becomes
 // one trigger of the map, in order; code inside program(() => { … }) runs in the game.
@@ -557,7 +557,7 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
     if (!editor) return;
     const p = normalizePath(path);
     if (files[p] === undefined) return;
-    if (isMediaFile(p)) { (isImageFile(p) ? showImage : isSoundFile(p) ? showSound : isNotesFile(p) ? showNotes : showVideo)(api, t, p, files[p]); return; }
+    if (isMediaFile(p)) { (isImageFile(p) ? showImage : isSoundFile(p) ? showSound : isNotesFile(p) ? showNotes : isSamplesFile(p) ? showSamples : showVideo)(api, t, p, files[p]); return; }
     if (!openTabs.includes(p)) openTabs.push(p);
     editor.show(p);
     renderFiles();
@@ -664,7 +664,7 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
         const path = node.path;
         const fixed = path === ENTRY_FILE;
         const row = el("li", { className: path === active ? "tsd-row tsd-active" : "tsd-row", title: isMediaFile(path) ? `${path}\n${describeMedia(path, files[path])}` : path, onClick: () => openFile(path) },
-          isMediaFile(path) ? shell.icon(isImageFile(path) ? "file-media" : isSoundFile(path) ? "unmute" : isNotesFile(path) ? "music" : "device-camera-video") : el("span", { className: "tsd-ts" }, "TS"),
+          isMediaFile(path) ? shell.icon(isImageFile(path) ? "file-media" : isSoundFile(path) ? "unmute" : isNotesFile(path) || isSamplesFile(path) ? "music" : "device-camera-video") : el("span", { className: "tsd-ts" }, "TS"),
           el("span", { className: broken.has(path) ? "tsd-name tsd-problem" : "tsd-name" }, node.name),
           el("span", { className: "tsd-row-actions" },
             !fixed ? shell.iconButton({ icon: "edit", title: t("Rename or move…"), run: () => { void renameFile(path); } }).element : undefined,
@@ -1847,7 +1847,7 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
 
   const renameFile = async (path: string) => {
     if (!editor || path === ENTRY_FILE) return;
-    const name = await askName(t("Rename {path} to (a folder before the name moves it):", { path }), path, "", isMediaFile(path) ? (isImageFile(path) ? ".image" : isSoundFile(path) ? ".sound" : isNotesFile(path) ? ".notes" : ".video") : ".ts");
+    const name = await askName(t("Rename {path} to (a folder before the name moves it):", { path }), path, "", isMediaFile(path) ? (isImageFile(path) ? ".image" : isSoundFile(path) ? ".sound" : isNotesFile(path) ? ".notes" : isSamplesFile(path) ? ".samples" : ".video") : ".ts");
     if (!name) return;
     moveTo(path, name);
   };

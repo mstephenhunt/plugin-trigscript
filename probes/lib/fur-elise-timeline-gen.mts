@@ -1,0 +1,111 @@
+// The Für Elise soundtrack's timeline, written out as data a showcase program imports (probes/lib/fur-elise-timeline.ts):
+// every note as probes/fur-elise.ts plays it — when it is struck and let go, its key, how hard, which hand or part, its
+// place in its chord, its bar, beat and frame — the sections with their frames, the bars, the pedal. Worked out by the
+// script's own build (a check: no samples made), so it is the soundtrack's timing exactly.
+//
+//   npx tsx probes/lib/fur-elise-timeline-gen.mts                 # the straight soundtrack: fur-elise-timeline.ts
+//   npx tsx probes/lib/fur-elise-timeline-gen.mts --cinematic     # the cinematic arrangement: fur-elise-cinematic-timeline.ts
+//   npx tsx probes/lib/fur-elise-timeline-gen.mts --remix         # the trance remix: fur-elise-remix-timeline.ts
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import ts from "typescript";
+import { compileScript } from "../../compiler/compiler";
+import { defaultScriptNames } from "../../compiler/names";
+import { defaultLib } from "../../bundle/lib.mjs";
+import { scriptFiles } from "../../scripts/script-files.mts";
+
+const root = join(import.meta.dirname, "..", "..");
+const cinematic = process.argv.includes("--cinematic"), remixed = process.argv.includes("--remix");
+const files = scriptFiles(join(root, "probes", remixed ? "fur-elise-remix.ts" : cinematic ? "fur-elise-cinematic.ts" : "fur-elise.ts"));
+// The build hands values back only in its words: the line it fails with carries them. (Added to the module that has
+// the performance, so the arrangement's roles are at hand.)
+const into = remixed ? "lib/fur-elise-remix.ts" : cinematic ? "lib/fur-elise-cinematic.ts" : "main.ts";
+// The remix is three performances end to end (the piano's intro, the remix, its ending): put together here, each
+// note's time and bar moved to where its performance begins in the whole.
+if (remixed) files[into] += `
+const r3 = (x: number) => Math.round(x * 1000) / 1000;
+const names = Object.keys(REMIX_ROLES);
+const placed = [[intro, 0, 0], [take, DROP_AT, 9], [outro, OUTRO_AT, 9 + arrangement.bars]] as const;
+const notes = placed.flatMap(([p, at, bar]) => p.notes.map((n) => [r3(n.at + at), r3(n.end + at), n.pitch, n.velocity, names.indexOf(n.part), n.voice, n.bar + bar, r3(n.beat), Math.round((n.at + at) / 0.042)])).sort((a, b) => a[0] - b[0]);
+const bars = [...intro.bars.slice(0, 9), ...take.bars.slice(0, arrangement.bars).map((b) => b + DROP_AT), ...outro.bars.slice(0, 5).map((b) => b + OUTRO_AT)].map(r3);
+throw new Error("TIMELINE " + JSON.stringify({
+  seconds: r3(OUTRO_AT + outro.seconds), parts: names, roles: names.map((k) => (REMIX_ROLES as Record<string, string>)[k]), bars,
+  pedal: [...intro.pedal.map((p) => [r3(p[0]), r3(p[1])]), ...outro.pedal.map((p) => [r3(p[0] + OUTRO_AT), r3(p[1] + OUTRO_AT)])],
+  sections: sections.map((s) => ({ name: s.name, kind: s.kind, bar: s.from, at: r3(s.at), frame: s.frame })),
+  notes,
+}));
+`;
+else files[into] += `
+const r3 = (x: number) => Math.round(x * 1000) / 1000;
+const roles = ${cinematic ? "take.parts.map((p) => (PART_ROLES as Record<string, string>)[p])" : "take.parts.map((p) => ({ right: \"lead\", left: \"accomp\", violins: \"strings\", violas: \"strings\", celli: \"strings\", basses: \"bass\", horns: \"brass\", trombones: \"brass\", tuba: \"brass\", timpani: \"drum-low\", roll: \"drum-low\" } as Record<string, string>)[p])"};
+throw new Error("TIMELINE " + JSON.stringify({
+  seconds: r3(take.seconds), parts: take.parts, roles, bars: take.bars.map(r3), pedal: take.pedal.map((p) => [r3(p[0]), r3(p[1])]),
+  sections: sections.map((s) => ({ name: s.name, bar: s.from, at: r3(s.at), frame: s.frame })),
+  notes: take.notes.map((n) => [r3(n.at), r3(n.end), n.pitch, n.velocity, take.parts.indexOf(n.part), n.voice, n.bar, r3(n.beat), n.frame]),
+}));
+`;
+const r = compileScript(ts, files, defaultScriptNames(), { lib: defaultLib(), sounds: false });
+const line = r.diagnostics.map((d) => d.message).find((m) => m.includes("TIMELINE "));
+if (!line) { for (const d of r.diagnostics) console.error(d.message); process.exit(1); }
+const t = JSON.parse(line.slice(line.indexOf("TIMELINE ") + 9)) as { seconds: number; parts: string[]; roles: string[]; bars: number[]; pedal: number[][]; sections: { name: string; kind?: string; bar: number; at: number; frame: number }[]; notes: number[][] };
+const rows = (list: unknown[][]) => list.map((x) => `  ${JSON.stringify(x)},`).join("\n");
+// The big hits, for a picture's flashes: every impact; the taiko, timpani and gong/crash strokes struck at 110 or more.
+const BIG = new Set(["impact"]), STRONG = new Set(["drum-low", "cymbal"]);
+const drops = t.sections.filter((x) => x.kind === "drop");
+const hits = t.notes.filter((n) => BIG.has(t.roles[n[4]]) || (STRONG.has(t.roles[n[4]]) && t.parts[n[4]] !== "kick" && n[3] >= 110)
+  // (In the remix the kick is every beat: its downbeats on a drop are the big ones.)
+  || (t.parts[n[4]] === "kick" && drops.some((d) => Math.abs(d.at - n[0]) < 0.05)))
+  .map((n) => [n[0], n[8], drops.some((d) => Math.abs(d.at - n[0]) < 0.05) ? 1 : Math.round((n[3] / 127) * 100) / 100, n[4]]);
+const flagName = remixed ? " --remix" : cinematic ? " --cinematic" : "", source = remixed ? "fur-elise-remix.ts" : cinematic ? "fur-elise-cinematic.ts" : "fur-elise.ts";
+const text = `// Generated by probes/lib/fur-elise-timeline-gen.mts${flagName} from probes/${source}: do not edit, make it again.
+// Für Elise ${remixed ? "(the trance remix: the piano's intro in 3/8, the remix in 4/4 at 128, the piano's ending in 3/8) " : cinematic ? "(the cinematic arrangement) " : ""}as the soundtrack plays it (the whole piece as one clip, from 0). Seconds from its start; a frame is 42 ms
+// (Fastest). The picture runs ahead of a long clip's sound by about 95 ms (the visualizer probe, 2026-11-09): the
+// program shifts the picture, not these numbers.
+
+/** Seconds from the first note to the last let go (the held A's ring and the hall's tail come after). */
+export const SECONDS = ${t.seconds};
+/** The parts, by the number NOTES gives them. */
+export const PARTS = ${JSON.stringify(t.parts)} as const;
+/**
+ * Each part's role, by the same number: "lead" (the melody: the piano's right hand${remixed ? ", the lead synth" : ""}), "accomp" (the piano's left hand)${remixed ? `,
+ * "lead-synth" (the lead's octave below, doubling the melody), "arp" (the plucked arpeggios), "synth" (stabs), "pad",
+ * "strings", "bass" (rolling bass, sub), "drum-low" (kick, timpani), "drum-high" (clap, hats, snare), "cymbal" (open
+ * hats, crash), "impact", "riser" (risers, sweeps, crashes reversed)` : cinematic ? `,
+ * "strings", "brass", "bass", "synth", "pad", "drum-low" (taiko, kick, timpani), "drum-high" (tenor drums, snare),
+ * "cymbal" (crash, suspended cymbal, gong), "impact" (impacts and the sub drop), "riser" (risers, crashes reversed)` : `,
+ * "strings", "bass", "brass", "drum-low" (the timpani)`}.
+ */
+export const ROLES = ${JSON.stringify(t.roles)} as const;
+/** The sections, in order${remixed ? " — kind 'intro', 'drop', 'breakdown', 'build' or 'ending'" : ""}: the bar each begins on (BARS' numbering), and where, in seconds and frames. */
+export const SECTIONS: readonly { readonly name: string;${remixed ? " readonly kind: string;" : ""} readonly bar: number; readonly at: number; readonly frame: number }[] = ${JSON.stringify(t.sections)};${remixed ? `
+/** The drops' downbeats, [at, frame]: the biggest moments (strength 1 in HITS too). */
+export const DROPS: readonly (readonly [number, number])[] = ${JSON.stringify(drops.map((d) => [d.at, d.frame]))};` : ""}
+/** Seconds each bar begins: [0] the pickup's start, [k] bar k's. */
+export const BARS: readonly number[] = ${JSON.stringify(t.bars)};
+/** The piano's sustain pedal: [down, up] in seconds. */
+export const PEDAL: readonly (readonly [number, number])[] = [
+${rows(t.pedal)}
+];
+/** What NOTES' columns hold. */
+export const AT = 0, END = 1, PITCH = 2, VELOCITY = 3, PART = 4, VOICE = 5, BAR = 6, BEAT = 7, FRAME = 8;
+/**
+ * Every note in the order struck: [at, end, pitch, velocity, part, voice, bar, beat, frame] — seconds struck and let go
+ * (the key; the pedal may hold it on), the key (60 is C4; for a drum, cymbal, impact or riser the kit's key, not a
+ * pitch), 1 … 127, PARTS' number, its place in its chord (0 the lowest), the bar, the beat in it (eighths from 0), the
+ * frame it is struck on.
+ */
+export const NOTES: readonly (readonly number[])[] = [
+${rows(t.notes)}
+];
+/**
+ * The big hits, for flashes: [at, frame, strength, part] — every impact, and the low drums' and cymbals' strokes struck
+ * at velocity 110 or more (the kick left out: it is on every pulse${remixed ? ", but for its downbeat on each drop" : ""}); strength 0 … 1 (velocity / 127)${remixed ? ", 1 on a drop's downbeat" : ""}.
+ */
+export const HIT_AT = 0, HIT_FRAME = 1, HIT_STRENGTH = 2, HIT_PART = 3;
+export const HITS: readonly (readonly number[])[] = [
+${rows(hits)}
+];
+`;
+const out = remixed ? "fur-elise-remix-timeline.ts" : cinematic ? "fur-elise-cinematic-timeline.ts" : "fur-elise-timeline.ts";
+writeFileSync(join(root, "probes", "lib", out), text);
+console.log(`probes/lib/${out}: ${t.notes.length} notes, ${hits.length} hits, ${t.sections.length} sections, ${t.seconds} s`);

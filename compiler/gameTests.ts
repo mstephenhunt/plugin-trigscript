@@ -16,6 +16,7 @@ import { RemasteredWeigh } from "./remasteredCost";
 import { EudTracer, type EudTraceHost, type EudTraceRow } from "./eudError";
 import { RecordingHandle, type DebugHost, type DebugLimits, type DebugRecording } from "./gameDebug";
 import { here, locate, runModules, type LinkedFile } from "./link";
+import { mediaValue } from "./media";
 import type { ScriptNames } from "./names";
 import { Collector, createRuntime } from "./runtime";
 import { isTestFile, listTests, runTests, TestRegistry, TESTING_NAMES, type TestReport, type TestResult } from "./testing";
@@ -41,6 +42,11 @@ export interface GameTestPayload {
   trace?: boolean;
   /** Before the tests, the map played this many frames with nobody at it (a script with no tests is traced so). */
   play?: number;
+  /**
+   * The script's videos, images, sounds, notes and samples by path, as its files hold them: what an import of one gives
+   * when the modules run again. Absent, a script that imports one cannot run beside the game.
+   */
+  media?: [string, string][];
 }
 
 /** What `runGameTests` returns: the report, and with `trace` asked, the run's reads and writes by line. */
@@ -55,7 +61,8 @@ function register(payload: GameTestPayload) {
   registry.where = () => where(new Error()) ?? { file: ENTRY_FILE, line: 1 };
   const runtime = { ...createRuntime(payload.names, collector), ...registry.library() };
   collector.running = true;
-  const failure = runModules(linked, entryOf(linked.keys()), runtime, MODULE_NAME, { imported: TESTING_NAMES, then: [...linked.keys()].filter(isTestFile).sort() });
+  const media = new Map(payload.media ?? []);
+  const failure = runModules(linked, entryOf(linked.keys()), runtime, MODULE_NAME, { imported: TESTING_NAMES, then: [...linked.keys()].filter(isTestFile).sort(), media: (path) => { const text = media.get(path); return text === undefined ? undefined : mediaValue(path, text); } });
   collector.running = false;
   return { linked, registry, where, error: failure ? `${failure.file ?? ENTRY_FILE}:${failure.line ?? 1}: ${failure.message}` : null };
 }
