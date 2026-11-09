@@ -20,7 +20,7 @@ import { buildInBackground, compileInBackground, type CompileInput } from "./com
 import { isRefused, type OwnBuildInput, type OwnBuildOutcome } from "./compiler/backend/build";
 import { ENTRY_FILE, type CompileResult, type OwnCheck, type ScriptDiagnostic, type ScriptFiles } from "./compiler/compiler";
 import { generateDeclarations } from "./compiler/declarations";
-import { scriptNames, type ScriptNames } from "./compiler/names";
+import { dataSetNamesOf, GAME_DATA_SET, scriptNames, type DataSetNames, type ScriptNames } from "./compiler/names";
 import { printScript, type PrintOptions } from "./compiler/print";
 import { simulate, type SimulationEvent } from "./compiler/simulate";
 import type { TestResult, TestRunOptions, TestWorld } from "./compiler/testing";
@@ -539,6 +539,8 @@ export class ScriptService {
       }
       const chk = await this.api.document.sections.chkOf(input.map);
       const { heapCells, stackDepth } = this.settings();
+      const notice = this.dataSetNotice("programs");
+      if (notice) say({ kind: "warning", message: notice });
       log(brought.entries.length
         ? this.t("Built by TrigScript: {n, plural, one {# program} other {# programs}} laid out into the map, {contributors} among them", { n: compiled!.ir.length, contributors: [...new Set(brought.of.values())].map((c) => c.label).join(", ") })
         : this.t("Built by TrigScript: {n, plural, one {# program} other {# programs}} laid out into the map", { n: compiled!.ir.length }));
@@ -659,9 +661,40 @@ export class ScriptService {
       unitCustomName: (id) => custom.get(id) || null,
       // (A host from before the Sound Editor's API has no sounds() to ask.)
       sounds: (api.settings.sounds?.() ?? []).map((w) => ({ stringIndex: w.stringIndex, path: w.path })),
+      ...this.dataSetNames(),
     });
     const decls = generateDeclarations(names);
     return { names, decls, context: hashText(decls) };
+  }
+
+  /**
+   * The data set in use when it is not the game's own (Help ▸ Game Data…): its id and the name the editor calls it.
+   * Null for the game's own data, and on a host from before data sets.
+   */
+  dataSet(): { id: string; name: string } | null {
+    const profile = (this.api as { gameData?: { profile?: () => { id: string; name: string } } }).gameData?.profile?.();
+    return profile && profile.id !== GAME_DATA_SET ? { id: profile.id, name: profile.name } : null;
+  }
+
+  /** What of the data set's names the tables take (`compiler/names.ts`, `dataSetNamesOf`); nothing for the game's own data. */
+  private dataSetNames(): { dataSet?: DataSetNames } {
+    const set = this.dataSet();
+    if (!set) return {};
+    const n = this.api.names;
+    const dataSet = dataSetNamesOf(set.name, { units: n.units(), weapons: n.weapons(), upgrades: n.upgrades(), techs: n.techs() });
+    return dataSet ? { dataSet } : {};
+  }
+
+  /**
+   * The sentence a program, a build and a run in the game carry while a data set other than the game's own is in use:
+   * the programs and the lifted game work with the game's own memory and data, not the set's. Null without one.
+   */
+  dataSetNotice(kind: "programs" | "tests"): string | null {
+    const set = this.dataSet();
+    if (!set) return null;
+    return kind === "programs"
+      ? this.t("Programs read and write the game's memory where StarCraft's own data keeps it, so they are made for the game's own data and may not work with {set}.", { set: set.name })
+      : this.t("These tests ran in a game with StarCraft's own data, not {set}.", { set: set.name });
   }
 
   /** The id of the map in front, or null on a host without ids (every map then compares equal). */

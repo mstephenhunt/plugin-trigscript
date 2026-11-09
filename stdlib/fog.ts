@@ -34,7 +34,7 @@
  * Coordinates are tiles, (0, 0) the map's top left. About 800 brushes a frame is the most the game makes: it keeps a
  * removed unit's place until the next frame.
  */
-import { game, program, sleep, frames, stats, units, createUnit, removeUnit, centerLocation, reserveLocation, memory, cover, nextFrame, type Player, type UnitType, type Video } from "trigscript";
+import { game, program, sleep, frames, stats, createUnit, removeUnit, centerLocation, reserveLocation, memory, cover, nextFrame, type Player, type UnitType, type Video } from "trigscript";
 
 /**
  * Each brush's shape, sizes 1 to 11: the tiles a flying unit of that sight range reveals, read out of the game.
@@ -66,12 +66,12 @@ export const SHAPES: readonly (readonly string[])[] = [
   ["........#######.........", "......###########.......", "....###############.....", "...#################....", "..###################...", ".#####################..", ".#####################..", "#######################.", "#######################.", "########################", "########################", "########################", "###########@############", "########################", "########################", "########################", "#######################.", "#######################.", ".#####################..", ".#####################..", "..###################...", "...#################....", "....###############.....", "......###########.......", "..........#####........."],
 ];
 
-/** Each size's unit, size 1 first: flying heroes without a sight upgrade. A map that places one gets odd sight from it. */
+/** Each size's unit, size 1 first: flying heroes without a sight upgrade, by the game's own ids (the same under a mod's names). A map that places one gets odd sight from it. */
 const BRUSHES: readonly UnitType[] = [
-  units.KukulzaMutalisk, units.KukulzaGuardian, units.YggdrasillOverlord, units.MagellanScienceVessel,
-  units.GantrithorCarrier, units.HyperionBattlecruiser, units.NoradIIBattlecruiser, units.TomKazanskyWraith,
-  units.DanimothArbiter, units.MojoScout, units.ArtanisScout,
-];
+  55 /* Kukulza (Mutalisk) */, 56 /* Kukulza (Guardian) */, 57 /* Yggdrasill (Overlord) */, 22 /* Magellan (Science Vessel) */,
+  82 /* Gantrithor (Carrier) */, 28 /* Hyperion (Battlecruiser) */, 29 /* Norad II (Battlecruiser) */, 21 /* Tom Kazansky (Wraith) */,
+  86 /* Danimoth (Arbiter) */, 80 /* Mojo (Scout) */, 88 /* Artanis (Scout) */,
+] as UnitType[];
 
 /** Where each brush is made: a location the map does not use, taken when the script is built. */
 const SPOT = reserveLocation("fog: where each brush is made");
