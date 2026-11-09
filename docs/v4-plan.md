@@ -6620,6 +6620,8 @@ built. The picture leads the sound by a steady ~95 ms (clicks −88 … −100 m
 no drift over the 35 s A clip), so the Showcase starts each clip ~2 frames before its picture. A clip a bar (S2) lands
 −40 … +30 ms off the one clip (S1), bar to bar: one clip a section or one for the whole piece, never a clip a bar. No
 Disruption Web in Remastered either. The explosions show on the downbeats.
+**Chosen (the user, 2026-11-09):** falling notes; the main screen a row every other frame (A2); the storm with red
+flashes on each chord and explosions on the big downbeats only (their game sounds heard).
 
 
 ### Smaller things that show well
