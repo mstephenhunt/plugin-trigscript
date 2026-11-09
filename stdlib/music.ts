@@ -404,7 +404,36 @@ export const presets = {
   bell: (o: Parameters<typeof fmSynth>[0] = {}) => fmSynth({ ratio: 3.5, index: 5, brightness: 0.08, bright: 1.6, volume: 0.16, decay: 2.5, sustain: 0, release: 1.2, ...o }),
   /** A plucked string, a little bright. */
   pluck: (o: Parameters<typeof strings>[0] = {}) => strings({ brightness: 0.6, decay: 1.4, ...o }),
+  /**
+   * A film trailer's "braam": five saws low and wide, the filter opening over half a second and closing slowly, driven
+   * hard — the brass section's blast as a synth. Play it low (A1 … A2), with the low brass on the same notes.
+   */
+  braam: (o: SynthOptions = {}) => synth({ wave: "saw", voices: 5, detune: 16, width: 0.6, volume: 0.22, attack: 0.04, decay: 1.2, sustain: 0.7, release: 0.9, filter: { cutoff: 160, amount: 3.4, resonance: 0.25, envelope: { attack: 0.45, decay: 1.6, sustain: 0.35, release: 0.8 } }, drive: 14, ...o }),
+  /** A short synth pulse for sixteenth ostinatos: two squares, a quick filter blip. */
+  pulse: (o: SynthOptions = {}) => synth({ wave: "square", voices: 2, detune: 9, width: 0.4, volume: 0.12, attack: 0.002, decay: 0.09, sustain: 0.25, release: 0.04, filter: { cutoff: 900, amount: 2.2, resonance: 0.3, envelope: { decay: 0.08, sustain: 0.1 } }, ...o }),
+  /** A sub bass: a sine, soft at the start, under everything. */
+  sub: (o: SynthOptions = {}) => synth({ wave: "sine", volume: 0.4, attack: 0.02, decay: 0.3, sustain: 0.9, release: 0.25, ...o }),
 };
+
+/**
+ * An instrument of one-shots: a clip a key ("C2": the impact, "D2": a riser), each played whole whatever the note's
+ * length and not moved in pitch, as loud as its velocity says — percussion and effects as parts of a performance
+ * (`perform`), beside the instruments that play notes: `music.hits({ C2: music.impact(), D2: music.riser(4) })`.
+ */
+export function hits(clips: Readonly<Record<string, Clip>>, options: { readonly volume?: number } = {}): Instrument {
+  const volume = options.volume ?? 1, byKey = new Map<number, Clip>();
+  for (const [name, clip] of Object.entries(clips)) byKey.set(noteNumber(name), clip);
+  const clipOf = (name: string) => {
+    const c = byKey.get(noteNumber(name));
+    if (!c) throw new Error(`hits() has no clip for ${name}: it has ${Object.keys(clips).join(", ")}.`);
+    return c;
+  };
+  return Object.freeze({
+    kind: "notes" as const,
+    note: (name: string) => (volume === 1 ? clipOf(name) : clipOf(name).gain(volume)),
+    strike: (name: string, _seconds: number, velocity: number) => clipOf(name).gain(volume * velocity),
+  });
+}
 
 /**
  * A drum kit made from nothing, a letter a drum: k kick, s snare, c clap, h closed hat, o open hat, t tom, r rim, x crash. At
@@ -1707,6 +1736,6 @@ export const loop = game(async (s: Song) => {
 
 /** Everything above as one name: import { music } from "trigscript/music"; music.play(song). */
 export const music = {
-  sampler, sampled, perform, excerpt, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
+  sampler, sampled, perform, excerpt, hits, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
   part, section, arrange, transpose, stretch, repeat, beat, chord, over, chords, bars, pump, riser, impact, midi, stems, conduct,
 };

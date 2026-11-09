@@ -4,6 +4,7 @@
  *
  *   npx tsx scripts/make-samples.mts <instrument.sfz> <out.samples> [options]
  *   npx tsx scripts/make-samples.mts --names <folder> <out.samples> [options]
+ *   npx tsx scripts/make-samples.mts --kit <kit.json> <out.samples> [options]
  *
  *   --keys 40-90         only the zones of these keys (MIDI numbers, or names: E2-C7); the pedal's are kept
  *   --layers 2,4,6       only these strengths of the notes, by number from the softest (1); the ones kept widen to cover the rest
@@ -16,6 +17,10 @@
  *                        each text — a drum measured by ear or by its spectrum, where --detect is unsure
  *   --name "…" --credit "…"   what the file says it is, and whom to credit
  *
+ * A kit (--kit) is percussion, a key a drum: { "root": "<folder>", "release": 2, "drums": { "C2": ["Percussion/
+ * BDrumNewhit_*"], … } } — each key's recordings by pattern (* any text), unpitched, its strengths from the names
+ * ("v3", or ppp … fff), the rest of a name telling recordings of one strength apart (played in turn).
+ *
  * The recordings stay where they are (never in a repository: a sample library is its makers' and is large); the file
  * made holds what the build needs, coded without loss.
  */
@@ -26,8 +31,8 @@ import { writeSamples, type ZoneData } from "../compiler/samples";
 const args = process.argv.slice(2);
 const option = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const flag = (name: string) => args.includes(name);
-const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && !["--detect", "--names"].includes(args[i - 1])));
-const byNames = flag("--names");
+const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && !["--detect", "--names", "--kit"].includes(args[i - 1])));
+const byNames = flag("--names"), byKit = flag("--kit");
 const [source, out] = positional;
 if (!source || !out) { console.error("usage: make-samples <instrument.sfz> <out.samples> [--keys lo-hi] [--layers 1,3,…] [--seconds s] | --names <folder> <out.samples> [--detect]"); process.exit(2); }
 
@@ -186,9 +191,45 @@ function zonesFromNames(folder: string): { files: string[]; zones: ZoneData[] } 
   return { files: recs.map((r) => r.file), zones };
 }
 
+/* ── A kit: a key a drum ── */
+
+const DYNAMICS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"];
+/** A recording's strength from its name: "v3", or a dynamic as a word of it; -1 when it says none. */
+function strengthOf(stem: string): number {
+  const v = /(?:^|[_-])v(\d+)(?=[_.-]|$)/i.exec(stem);
+  if (v) return Number(v[1]);
+  const words = stem.toLowerCase().replace(/\.wav$/, "").split(/[_\-\s]+/);
+  for (let k = DYNAMICS.length - 1; k >= 0; k--) if (words.includes(DYNAMICS[k])) return k + 1;
+  return -1;
+}
+
+function zonesFromKit(path: string): { files: string[]; zones: ZoneData[] } {
+  const spec = JSON.parse(readFileSync(path, "utf8")) as { root?: string; release?: number; drums: Record<string, string[]> };
+  const root = resolve(dirname(path), spec.root ?? ".");
+  const files: string[] = [], zones: ZoneData[] = [];
+  for (const [name, patterns] of Object.entries(spec.drums)) {
+    const key = keyOf(name);
+    const found = patterns.flatMap((pat) => {
+      const dir = join(root, dirname(pat)), re = new RegExp(`^${basename(pat).replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
+      return readdirSync(dir).filter((f) => re.test(f) && /\.wav$/i.test(f)).sort().map((f) => join(dir, f));
+    });
+    if (!found.length) throw new Error(`${name}: no recording matches ${patterns.join(", ")}.`);
+    const strengths = [...new Set(found.map((f) => strengthOf(basename(f))))].sort((a, b) => a - b);
+    found.forEach((f) => {
+      const st = strengthOf(basename(f)), li = strengths.indexOf(st), same = found.filter((g) => strengthOf(basename(g)) === st);
+      files.push(f);
+      zones.push({
+        sample: files.length - 1, key, lo: key, hi: key, vlo: li === 0 ? 1 : Math.floor((127 * li) / strengths.length) + 1, vhi: Math.floor((127 * (li + 1)) / strengths.length),
+        pitched: false, release: spec.release ?? 2, ...(same.length > 1 ? { turns: same.length, turn: same.indexOf(f) + 1 } : {}),
+      });
+    });
+  }
+  return { files, zones };
+}
+
 /* ── Choosing, cutting, writing ── */
 
-let { files, zones } = byNames ? zonesFromNames(source) : zonesFromSfz(source);
+let { files, zones } = byKit ? zonesFromKit(source) : byNames ? zonesFromNames(source) : zonesFromSfz(source);
 const keys = option("--keys");
 if (keys) {
   const [lo, hi] = keys.split("-").map(keyOf);

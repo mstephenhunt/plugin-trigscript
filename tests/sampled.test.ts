@@ -225,6 +225,27 @@ describe("music.excerpt", () => {
   });
 });
 
+describe("music.hits and the trailer presets", () => {
+  it("plays each key's clip whole, unpitched, as loud as its velocity, in a performance beside a note instrument", () => {
+    const r = run(`
+      const boom = tone(50, 2, { volume: 0.5 }), tick = noise(0.05, { volume: 0.3 });
+      const fx = music.hits({ C2: boom, D2: tick });
+      if (fx.note("C2", 0.1) !== boom) fail("note");
+      if (Math.abs(fx.strike!("C2", 0.1, 0.5).peak - boom.peak * 0.5) > 1e-6) fail("strike");
+      const take = music.perform({ meter: "3/8", bpm: 120 }, { fx: { instrument: fx, notes: "C2/16@100 r D2 r/4" } });
+      const mix = music.render(take, { limit: false });
+      // The boom whole, two seconds, though the note is a sixteenth.
+      if (Math.abs(mix.seconds - 2) > 0.05) fail(\`\${mix.seconds}\`);
+      const both = music.render(music.perform({ meter: "3/8", bpm: 120 }, { fx: { instrument: fx, notes: "C2/16@100 r D2 r/4" }, pad: { instrument: music.presets.braam(), notes: "A1/4." } }), { limit: false });
+      if (!(both.seconds >= 2)) fail(\`\${both.seconds}\`);
+      for (const p of [music.presets.braam(), music.presets.pulse(), music.presets.sub()]) if (!(p.note("A2", 0.5).seconds >= 0.49)) fail("preset");
+      let refused = "";
+      try { fx.note("E2", 1); } catch (e) { refused = String(e); }
+      if (!/no clip for E2/.test(refused)) fail(refused);`);
+    expect(errors(r)).toEqual([]);
+  });
+});
+
 describe("loudness and sympathy", () => {
   it("measures a full-scale 997 Hz sine at −3.01 LUFS on one side, 0 from both (as the game plays one channel), and brings a clip to a loudness", () => {
     const sine = tone(997, 3, { volume: 1, rate: 48000 });
