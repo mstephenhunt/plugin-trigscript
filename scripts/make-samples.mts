@@ -109,7 +109,9 @@ function zonesFromSfz(path: string): { files: string[]; zones: ZoneData[] } {
     const key = o.key !== undefined ? keyOf(o.key) : undefined;
     const lo = key ?? (o.lokey !== undefined ? keyOf(o.lokey) : 0), hi = key ?? (o.hikey !== undefined ? keyOf(o.hikey) : 127);
     if (trigger === "attack" || trigger === "release") if (lo < 0 || hi < 0) continue;
-    const centre = o.pitch_keycenter !== undefined ? keyOf(o.pitch_keycenter) : key ?? lo;
+    // SFZ: `key` sets the root too; with neither, the root is middle C (60), whatever the zone's keys. Salamander's C4
+    // regions say no root: taken as their lowest key (B3) they played a semitone sharp on B3, C4 and C#4.
+    const centre = o.pitch_keycenter !== undefined ? keyOf(o.pitch_keycenter) : key ?? 60;
     let k = files.indexOf(r.sample);
     if (k < 0) { files.push(r.sample); k = files.length - 1; }
     const zone: ZoneData = {
