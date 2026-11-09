@@ -57,3 +57,15 @@ What to decide (your call):
 Credits (in the map description too): Piano: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0).
 Orchestra: VSCO 2 Community Edition by Versilian Studios (CC0). Beethoven's score is in the public domain; the
 transcription and the arrangement are ours, written from the Breitkopf & Härtel complete edition (1888).
+
+Results (played 2026-11-09, recording StarCraft 2026.11.09 - 05.02.42.14.mp4, 3:50)
+------------------------------------------------------------------------------------
+The user: "sounds great". No answers given item by item; the defaults below stand.
+Measured against the five files (scripts/recording-check.mts):
+  - all five heard, each a perfect fit (1.000), at the file's own level (+0.67 … +0.69 dB, steady to 0.2 dB a second),
+    no drift (0 samples at 48 kHz at every 10 s), stereo as the file (L − R follows at 1.000; item 1 is one channel),
+    no sample at full scale, peaks 0.51 … 0.92.
+  - starts at 7.85, 45.31, 85.61, 140.46, 178.45 s of the recording.
+  - the game's text shows "Für Elise" with the ü (the lobby was not in the recording).
+Defaults taken: orchestra in the storm only; a smaller room for the first A, this hall for the last; loudness
+−17 / −15 LUFS; all 16 piano layers; resonance 0.07.

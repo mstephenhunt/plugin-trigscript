@@ -6598,6 +6598,12 @@ user's disk) with only the renders inside. Velocity crossfades between layers an
 modelled. The C section's bars C6 and C16 were hard to read in the scan (C6's chord read as C4 F#4 A4 over D#2, a
 diminished seventh to the E of C7; C16's bass as A2).
 
+**Played 2026-11-09** (recording StarCraft 2026.11.09 - 05.02.42.14.mp4): the user, "sounds great". Measured against the
+five files: each heard whole (fit 1.000), at the file's level (+0.7 dB), no drift, stereo kept, nothing at full scale;
+the game's text shows the ü. The sheet's choices were not answered one by one, so the defaults stand: the orchestra in
+the storm only, a smaller room for the first A and the hall for the last, −17 / −15 LUFS, all 16 piano layers.
+
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
