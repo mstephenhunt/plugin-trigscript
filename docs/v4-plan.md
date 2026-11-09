@@ -6806,6 +6806,54 @@ in e67671d). Chosen: a cinematic hybrid — piano, orchestra, big percussion, sy
 storm's hits are limited hard. Previews: Maps/TrigScript/fur-elise-sound-preview/cinematic/.
 
 
+#### S7 the showcase on the cinematic arrangement (built 2026-11-09)
+
+`fur-elise` merged again (the cinematic arrangement, the make-samples root-key fix). The showcase now plays the
+cinematic arrangement by default; the straight piece stays buildable.
+
+**One switch.** `probes/lib/fur-elise-showcase-choice.ts`: `SOUNDTRACK` ("cinematic" by default) picks the timeline,
+and `probes/fur-elise-showcase.ts` picks the clip by it (`lib/fur-elise-cinematic.ts`'s `whole` or
+`lib/fur-elise-soundtrack.ts`'s); only the clip played goes in the map. Built under Node, `FUR_ELISE=straight` picks
+the other without an edit (the module reads `globalThis.process.env`; the editor has none, so the constant decides).
+Both soundtrack modules are evaluated at every compile, which takes a check from ~6 s to ~37 s.
+
+**By role, not by name.** The keyboards show the parts whose ROLES are "lead" (gold) and "accomp" (cyan); "drum-low",
+"drum-high", "cymbal", "impact" and "riser" (a kit's key, not a note) are on no roll. Both keyboards are fitted to the
+piano's notes (A1 … E7 on the main screen, 40 white keys 16 px apart; A1 … C7 on the minimap), the rest folded into
+them by octaves.
+
+**Bigger where the music is, the user's choices kept:**
+- *The storm* (the section named "storm"; else the loud sections by velocity): the lead's chords red, the white keys
+  flashing red for two frames on each (64 frames in all).
+- *The big sections*, the storm and the final statement: the rest of the band (strings, brass, bass, synths, pads)
+  falls on the minimap in violet under the piano. The intro, the band's first sections, the breakdown and the ending
+  show the piano alone; the main screen shows only the piano throughout.
+- *The low drums*: in the big sections, each taiko or timpani hit of strength 0.95 or more (HITS) turns the minimap
+  keyboard's front row red for three frames (17 pulses). Nothing on the main screen: that stays the piano's.
+- *Explosions*, from HITS: the impacts of strength 0.9 or more, the strongest first, at least 100 frames (4 s)
+  apart — 7 moments, game time: 0:16.3 the band's first downbeat (Wraiths over the melody); 1:13.8 the storm's first
+  impact (three Battlecruisers); 1:23.8 the storm's middle (0.99: Wraiths); 1:32.6 the storm's last (Battlecruisers);
+  1:42.4 the final's first downbeat, the theme returning (Battlecruisers); 2:03.2 and 2:15.7 the final's big bars
+  (Wraiths). Strength 1 gets Battlecruisers, the rest Wraiths. The taiko's own strokes (about 60 over 0.9) are left out:
+  an explosion on each would be every bar. The straight piece has no impacts, so it keeps the downbeat-weight rule
+  (C1, C9, C16).
+
+**The maps.** Cinematic: 3.46 MB, 2:36.5 of sound (one Ogg, 3.2 MB), the tables to 2:40.7, the end line at 2:27.7;
+payload 2.6 MB, 141,011 changes. Straight: 4.39 MB, as before.
+
+**Checked.** `tests/fur-elise-showcase-run.test.ts` runs every check on both soundtracks (the switch through
+`FUR_ELISE` and `vi.resetModules`). Tuning, on the maps' own Ogg (`scmjs map unpack`, then `scripts/tuning-check.mts`):
+cinematic, 58 pitches, one off — the trombones' C#3 under the storm's braam, as the soundtrack's own check found;
+straight, 55 pitches, none off (B3/C4 fixed). In the lifted game, "every frame of the piece shows the picture worked
+out" holds on both (cinematic 3,825 frames, straight 5,180) and no explosion's unit outlives its frame. Cost
+(cinematic): 9,781 conditions and actions a frame on average, 70,055 at the most (frame 1900, the storm with the
+band and a flash) — 0.10 ms on average, 0.71 ms at the most of ~15 ms; straight as before, 0.55 ms. `game-check`
+(cinematic): 572,099 accesses, 0 ending the game, 0 ignored, 0 never seen.
+
+**Maps** (Maps/TrigScript): `trigscript-fur-elise.scx` the cinematic showcase, `trigscript-fur-elise-straight.scx` the
+straight one, `trigscript-fur-elise-check.txt` (the explosions' times), `fur-elise-showcase-frames.png` (22 stills: two
+a section and each explosion). Not played yet.
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
