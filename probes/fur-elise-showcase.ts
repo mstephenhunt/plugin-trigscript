@@ -1,11 +1,13 @@
-// Für Elise, TrigScript Showcase #3: the whole piece (probes/lib/fur-elise-soundtrack.ts, one clip) drawn as it plays —
-// notes falling onto a keyboard on the minimap (Overlords over Space, the other parts in violet) and on the main screen
-// (Flag-looking Spider Mines, a row every other frame), right hand gold, left hand cyan, a loud section's chords red
-// with the white keys flashing red on each, explosions on its strongest downbeats.
+// Für Elise, TrigScript Showcase #3: the whole piece as one clip — the cinematic arrangement (probes/lib/
+// fur-elise-cinematic.ts) or the straight piece (probes/lib/fur-elise-soundtrack.ts), as probes/lib/
+// fur-elise-showcase-choice.ts says (FUR_ELISE=straight when built under Node) — drawn as it plays: notes falling onto a
+// keyboard on the minimap (Overlords over Space; the rest of the band in violet in the big sections) and on the main
+// screen (Flag-looking Spider Mines, a row every other frame), right hand gold, left hand cyan, the storm's chords red
+// with the white keys flashing red on each, explosions on the strongest moments.
 //
 // Every frame's picture is worked out when the script is built (probes/lib/fur-elise-showcase-run.ts, from the
-// soundtrack's timeline, probes/lib/fur-elise-timeline.ts — made again by fur-elise-timeline-gen.mts when the soundtrack
-// changes; the run takes its parts, sections, range and accents from it); the program plays the changes back. The clip starts two frames before the
+// chosen soundtrack's timeline, made by probes/lib/fur-elise-timeline-gen.mts; the run takes its parts, sections, range
+// and big moments from it); the program plays the changes back. The clip starts two frames before the
 // picture's frame 0: the visualizer probe measured the picture ~95 ms ahead of a long clip's sound.
 //
 // Host it as multiplayer, alone, with the game's music off (sound effects on). Check sheet:
@@ -13,18 +15,24 @@
 //
 //   MAP_NAME="Für Elise" MAP_DESCRIPTION="…" npx tsx probes/lib/fur-elise-map.mts fixtures/eud/fur-elise-showcase-base.scx   (the description: below)
 //   MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase.scx fixtures/eud/fur-elise-showcase-base.scx
+//   FUR_ELISE=straight MAP_NAME="Für Elise" NO_BASES=1 npx tsx scripts/build-fixture.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-straight.scx fixtures/eud/fur-elise-showcase-base.scx
 //   SCM_SIM_DIR=~/github/scm-sim-eud npx tsx scripts/test-game.mts probes/fur-elise-showcase.ts fixtures/eud/fur-elise-showcase-base.scx
 //
-// The piano and orchestra .samples files must be in probes/ (made by probes/lib/fur-elise-sound-gen.mts; never committed).
+// The piano, orchestra and percussion .samples files must be in probes/ (made by probes/lib/fur-elise-sound-gen.mts; never committed).
 //
 // Players: P1 you (green, owns only the placed Map Revealers), P2 the computer Remastered needs to start a game (owns
 // nothing: a computer moves its own units), P3 … P8 own the pixels — P3 white keys, P4 indigo black keys, P5 gold right
-// hand, P6 cyan left hand, P7 red storm, P8 violet orchestra.
+// hand, P6 cyan left hand, P7 red storm, P8 violet band.
 // probe-players: {"0":{"rgb":[16,252,24]},"1":{"rgb":[120,120,120]},"2":{"rgb":[240,240,240]},"3":{"rgb":[72,56,200]},"4":{"rgb":[255,190,0]},"5":{"rgb":[0,200,255]},"6":{"rgb":[235,20,50]},"7":{"rgb":[170,80,255]}}
 import { program, nextFrame, print, playWav, centerView, centerLocation, reserveLocation, createUnit, removeUnitAt, killUnitAt, giveUnits, setMemory, units, P3, P4, P5, P6, P7, P8, test, expect } from "trigscript";
-import { whole } from "./lib/fur-elise-soundtrack";
+import { whole as straightWhole } from "./lib/fur-elise-soundtrack";
+import { whole as cinematicWhole } from "./lib/fur-elise-cinematic";
+import { SOUNDTRACK } from "./lib/fur-elise-showcase-choice";
 import { CAM_X, CAM_Y, CELL } from "./lib/fur-elise-layout";
 import { START, TOTAL, LAST_OFF, STARTS, CX, CY, CKIND, CTO, LABEL_F, LABEL_TEXT, FX_F, FX_K, FX_X, FX_Y, OVERLORD, pictureAt, explosions } from "./lib/fur-elise-showcase-run";
+
+/** The piece, one clip: the soundtrack the switch picks (only the clip played goes in the map). */
+const WHOLE = SOUNDTRACK === "straight" ? straightWhole : cinematicWhole;
 
 /** units.dat's flingy bytes of types 12 … 15 (Battlecruiser, Spider Mine, Nuclear Missile, Civilian), one dword. */
 const LOOKS = 0x664504;
@@ -68,7 +76,7 @@ program(async () => {
   let g = 0, i = 0, l = 0, e = 0, camera = 0;
   while (g < TOTAL) {
     // The piece, one clip, two frames before its picture begins.
-    if (g === START) playWav(whole, 0);
+    if (g === START) playWav(WHOLE, 0);
     while (l < LABEL_F.length && LABEL_F[l] === g) {
       const k = l;
       LABEL_TEXT.forEach((t, j) => { if (k === j) print(t); });

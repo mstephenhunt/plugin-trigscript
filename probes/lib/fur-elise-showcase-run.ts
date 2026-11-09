@@ -1,36 +1,33 @@
 // The Für Elise showcase's run (probes/fur-elise-showcase.ts), worked out when the script is built from the soundtrack's
-// timeline (probes/lib/fur-elise-timeline.ts): when the one clip starts, the text, and the picture of every frame on
+// timeline (the chosen one's: probes/lib/fur-elise-showcase-choice.ts): when the one clip starts, the text, and the picture of every frame on
 // both screens, flattened into the changes the program plays back. Plain data and functions, so the same run is what
 // the showcase plays, what tests/fur-elise-showcase-run.test.ts checks and what pictures of it are drawn from
 // (probes/lib/fur-elise-frames.mts --showcase).
 //
-// It is generic over the timeline (the soundtrack may change: a new arrangement brings new parts, sections and range):
-// the parts each screen shows, both keyboards, the loud sections and the explosions are all worked out from the data.
+// It is generic over the timeline (probes/lib/fur-elise-showcase-choice.ts picks the cinematic arrangement or the
+// straight piece): the parts each screen shows (by ROLES), both keyboards, the storm and the big sections, the
+// explosions (from HITS) are all worked out from the data.
+//
 // The looks are the ones the user chose after the visualizer probe (2026-11-09): notes falling onto a keyboard on both
-// screens, the main screen's a row every other frame; the lead part (the right hand) gold, the other (the left) cyan;
-// in a loud section the lead's chords red and the white keys flashing red on each, and explosions on its strongest
-// downbeats. The probe measured the picture ~95 ms ahead of a long clip's sound: the clip starts LEAD frames early.
+// screens, the main screen's a row every other frame; the lead (the right hand) gold, the accompaniment (the left)
+// cyan; in the storm the lead's chords red and the white keys flashing red on each; explosions on the strongest
+// moments; the rest of the band on the minimap in violet in the big sections only, so the intro and ending are calm. The probe measured the picture ~95 ms ahead of a long clip's sound: the clip starts LEAD frames early.
 import { FRAME, changesOver, fitKeys, isBlack, keyX, rollCells, whiteKeys, type FramedNote, type Pixel, type TimedNote } from "./note-timeline";
-import { NOTES, PARTS, SECTIONS, SECONDS, AT, END, PITCH, VELOCITY, PART, BAR, BEAT, FRAME as FRAME_COL } from "./fur-elise-timeline";
+import { TIMELINE } from "./fur-elise-showcase-choice";
+import { AT, END, PITCH, VELOCITY, PART, BAR, BEAT, FRAME as FRAME_COL, HIT_FRAME, HIT_STRENGTH, HIT_PART } from "./fur-elise-timeline";
 import { CELL, VIEW_X, VIEW_Y, CAM_X, BLACK_Y, WHITE_Y, ROW_GAP, FALL_Y0, STAGE_ROWS, MAP_W } from "./fur-elise-layout";
 
-/* ── The parts ── */
+const { NOTES, ROLES, SECTIONS, SECONDS, HITS } = TIMELINE;
 
-/** A part of drums: its notes are drums, not keys, and no roll shows them (they still count towards a downbeat's weight). */
-export const isDrums = (name: string) => /drum|kit|perc|kick|snare|hat|cymbal|clap/i.test(name);
-const PITCHED = PARTS.map((_, k) => k).filter((k) => !isDrums(PARTS[k]));
-const count = (k: number) => NOTES.filter((n) => n[PART] === k).length;
-const meanPitch = (k: number) => NOTES.filter((n) => n[PART] === k).reduce((sum, n, _, all) => sum + n[PITCH] / all.length, 0);
-/**
- * The two parts the main screen shows as hands: "right" and "left" when the timeline has them (the piano), else the two
- * pitched parts with the most notes, the higher of them the lead. The lead is gold, the other cyan.
- */
-export const [LEAD_PART, OTHER_PART] = ((): [number, number] => {
-  const r = PARTS.indexOf("right" as never), l = PARTS.indexOf("left" as never);
-  if (r >= 0 && l >= 0) return [r, l];
-  const [a, b] = [...PITCHED].sort((x, y) => count(y) - count(x));
-  return meanPitch(a) >= meanPitch(b ?? a) ? [a, b ?? a] : [b, a];
-})();
+/* ── The parts, by their roles ── */
+
+/** A part of these roles is drums, an impact or a riser: its "pitch" is a kit's key, and no roll shows it. */
+const UNPITCHED = ["drum-low", "drum-high", "cymbal", "impact", "riser"];
+const roleOf = (part: number): string => ROLES[part];
+export const isPitched = (part: number) => !UNPITCHED.includes(roleOf(part));
+/** The piano's two hands, on both keyboards: the lead (the right hand, the theme) gold, the accompaniment cyan. */
+export const LEAD_PART = ROLES.indexOf("lead" as never), OTHER_PART = ROLES.indexOf("accomp" as never);
+if (LEAD_PART < 0 || OTHER_PART < 0) throw new Error("The timeline's ROLES name no lead or no accomp.");
 const onStage = (part: number) => part === LEAD_PART || part === OTHER_PART;
 
 /* ── The keyboards ── */
@@ -45,8 +42,11 @@ export const STAGE_LO = STAGE_KEYS.lo, STAGE_HI = STAGE_KEYS.hi;
  */
 export const STAGE_PITCH = Math.max(16, Math.min(20, Math.floor(624 / Math.max(1, whiteKeys(STAGE_LO, STAGE_HI).length - 1))));
 export const STAGE_X0 = 830 - (whiteKeys(STAGE_LO, STAGE_HI).length - 1) * STAGE_PITCH;
-/** The minimap's keyboard: every pitched part's notes in the map's 64 columns of cells; outliers by octaves. (Für Elise: D2 … E7, A1 up an octave.) */
-export const ROLL_KEYS = fitKeys(NOTES.filter((n) => !isDrums(PARTS[n[PART]])).map((n) => n[PITCH]), MAP_W / 2, "keys");
+/**
+ * The minimap's keyboard: the piano's notes in the map's 64 columns of cells, outliers by octaves; the other parts are
+ * folded into it. (Für Elise: A1 … C7, E7's run an octave down.)
+ */
+export const ROLL_KEYS = fitKeys(NOTES.filter((n) => onStage(n[PART])).map((n) => n[PITCH]), MAP_W / 2, "keys");
 export const ROLL_LO = ROLL_KEYS.lo, ROLL_HI = ROLL_KEYS.hi;
 export const ROLL_COL = Math.floor((MAP_W / 2 - (ROLL_HI - ROLL_LO + 1)) / 2);
 /** The minimap roll's keyboard rows, and rows of falling notes above them, a row every ROLL_STEP frames. */
@@ -82,22 +82,33 @@ export interface ShowNote extends FramedNote<TimedNote> { readonly part: number;
 /** Each section's first bar, and the bar after the last. */
 const sectionEnd = (k: number) => SECTIONS[k + 1]?.bar ?? Infinity;
 const meanVelocity = (ns: readonly (readonly number[])[]) => ns.reduce((sum, n) => sum + n[VELOCITY], 0) / Math.max(1, ns.length);
-const pitchedNotes = NOTES.filter((n) => !isDrums(PARTS[n[PART]]));
-/** The loud sections: played at a quarter or more over the piece's mean velocity (Für Elise: the storm, at 1.9 times). */
-export const LOUD = SECTIONS.filter((s, k) => meanVelocity(pitchedNotes.filter((n) => n[BAR] >= s.bar && n[BAR] < sectionEnd(k))) >= 1.25 * meanVelocity(pitchedNotes)).map((s) => s.name);
-const loudBar = (bar: number) => SECTIONS.some((s, k) => LOUD.includes(s.name) && bar >= s.bar && bar < sectionEnd(k));
-/** The lead's notes struck together in a loud section (by bar and beat: the performance spreads a chord by a few ms). */
+const pitchedNotes = NOTES.filter((n) => isPitched(n[PART]));
+const named = (...names: string[]) => SECTIONS.filter((s) => names.includes(s.name)).map((s) => s.name);
+const byVelocity = SECTIONS.filter((s, k) => meanVelocity(pitchedNotes.filter((n) => n[BAR] >= s.bar && n[BAR] < sectionEnd(k))) >= 1.25 * meanVelocity(pitchedNotes)).map((s) => s.name);
+/**
+ * The storm: red chords and red flashes (the user's choice). The section named "storm"; else the loud sections, played
+ * at a quarter or more over the piece's mean velocity.
+ */
+export const LOUD = named("storm").length ? named("storm") : byVelocity;
+/**
+ * The big sections, where the rest of the band shows on the minimap in violet: the storm and the final statement (the
+ * cinematic arrangement); the intro, the ending and the quieter sections show the piano alone.
+ */
+export const BIG = [...new Set([...LOUD, ...named("final")])];
+const inSections = (names: readonly string[]) => (bar: number) => SECTIONS.some((s, k) => names.includes(s.name) && bar >= s.bar && bar < sectionEnd(k));
+const loudBar = inSections(LOUD), bigBar = inSections(BIG);
+/** The lead's notes struck together in the storm (by bar and beat: the performance spreads a chord by a few ms). */
 const struckWith = new Map<string, number>();
 for (const n of NOTES) if (n[PART] === LEAD_PART && loudBar(n[BAR])) struckWith.set(`${n[BAR]} ${n[BEAT]}`, (struckWith.get(`${n[BAR]} ${n[BEAT]}`) ?? 0) + 1);
 
-export const notes: readonly ShowNote[] = NOTES.filter((n) => !isDrums(PARTS[n[PART]])).map((n) => {
+export const notes: readonly ShowNote[] = NOTES.filter((n) => onStage(n[PART]) || (isPitched(n[PART]) && bigBar(n[BAR]))).map((n) => {
   // The timeline's own frame for the strike (the soundtrack's), and the frames its key is held.
   const on = ZERO + n[FRAME_COL], off = ZERO + Math.round(n[END] / FRAME);
   const source: TimedNote = { time: n[AT], seconds: n[END] - n[AT], note: n[PITCH], hand: n[PART], velocity: n[VELOCITY] };
   const stormChord = n[PART] === LEAD_PART && loudBar(n[BAR]) && (struckWith.get(`${n[BAR]} ${n[BEAT]}`) ?? 0) >= 2;
   return { source, on, len: Math.max(2, off - on), note: n[PITCH], hand: n[PART], velocity: n[VELOCITY], chord: stormChord, part: n[PART], bar: n[BAR], beat: n[BEAT], stormChord };
 });
-/** The hands, on both screens; the rest (the orchestra, …), on the minimap only. */
+/** The hands, on both screens; the rest of the band (strings, brass, bass, synths, pads), in the big sections, on the minimap only. */
 export const piano = notes.filter((n) => onStage(n.part));
 const orchestra = notes.filter((n) => !onStage(n.part));
 
@@ -110,6 +121,16 @@ export const flashes = new Set<number>();
     first.set(k, Math.min(first.get(k) ?? Infinity, n.on));
   }
   for (const f of first.values()) { flashes.add(f); flashes.add(f + 1); }
+}
+
+/**
+ * The low drums' strongest strokes in the big sections (taiko, timpani: HITS of the role "drum-low", strength 0.95 or
+ * more): the minimap's keyboard front row pulses red for three frames on each — the beat felt on the minimap, the main
+ * screen left to the piano.
+ */
+export const pulses = new Set<number>();
+for (const h of HITS) if (roleOf(h[HIT_PART]) === "drum-low" && h[HIT_STRENGTH] >= 0.95 && SECTIONS.some((s, k) => BIG.includes(s.name) && h[HIT_FRAME] >= s.frame && h[HIT_FRAME] < (SECTIONS[k + 1]?.frame ?? Infinity))) {
+  for (let d = 0; d < 3; d++) pulses.add(ZERO + h[HIT_FRAME] + d);
 }
 
 /* ── What each frame shows ── */
@@ -158,7 +179,7 @@ function draw(f: number, before: readonly Pixel[]): Pixel[] {
     const idle = isBlack(key) ? INDIGO : flash ? RED : WHITE;
     const color = keyColor(key, idle, rollKey);
     out.push({ x: rollX(key), y: rollY(ROLL_KEY_ROW), unit: OVERLORD, color });
-    if (!isBlack(key)) out.push({ x: rollX(key), y: rollY(ROLL_KEY_ROW + 1), unit: OVERLORD, color });
+    if (!isBlack(key)) out.push({ x: rollX(key), y: rollY(ROLL_KEY_ROW + 1), unit: OVERLORD, color: color === idle && pulses.has(f) ? RED : color });
   }
   // The main screen's keyboard, from the frame after.
   if (f >= SETUP + 1) for (const key of STAGE_LIST) {
@@ -185,39 +206,43 @@ export function pictureAt(f: number): Pixel[] {
   return PICTURES[f];
 }
 
-/* ── The explosions: the strongest downbeats ── */
+/* ── The explosions ── */
 
+/** The impacts the timeline marks (HITS of the role "impact"), as frames of the picture with their strength. */
+const IMPACTS = HITS.filter((h) => roleOf(h[HIT_PART]) === "impact").map((h) => ({ frame: ZERO + h[HIT_FRAME], strength: h[HIT_STRENGTH] }));
 /**
- * The downbeats that get an explosion: in the loud sections (the whole piece when none is), each bar's first beat
- * weighed by the velocities of every note struck on it, drums too; the three heaviest at least four bars apart. (Für
- * Elise: C16, the ff chord the storm ends on, then C9 and C1 — the three bars the score marks with an accent.)
+ * The moments that get an explosion. With impacts in the timeline (the cinematic arrangement): those of strength 0.9
+ * or more, the strongest first, at least 100 frames (4 s) apart — the band's first downbeat, the storm's three big
+ * bars, the final's return of the theme and its two last big bars, not every drum stroke. Without (the straight
+ * piece): the loud section's downbeats weighed by the velocities struck on them, the three heaviest four bars apart —
+ * C16, C9 and C1, the bars the score accents.
  */
-export const BOOM_BARS: readonly number[] = (() => {
+export const BOOMS: readonly { frame: number; strength: number }[] = (() => {
+  const chosen: { frame: number; strength: number }[] = [];
+  if (IMPACTS.length) {
+    for (const h of [...IMPACTS].sort((x, y) => y.strength - x.strength || x.frame - y.frame)) {
+      if (h.strength >= 0.9 && chosen.every((c) => Math.abs(c.frame - h.frame) >= 100)) chosen.push(h);
+    }
+    return chosen.sort((x, y) => x.frame - y.frame);
+  }
   const weight = new Map<number, number>();
   for (const n of NOTES) if (n[BEAT] === 0 && (!LOUD.length || loudBar(n[BAR]))) weight.set(n[BAR], (weight.get(n[BAR]) ?? 0) + n[VELOCITY]);
-  const chosen: number[] = [];
-  for (const [bar] of [...weight].sort((x, y) => y[1] - x[1] || x[0] - y[0])) {
-    if (chosen.length < 3 && chosen.every((b) => Math.abs(b - bar) >= 4)) chosen.push(bar);
-  }
-  return chosen;
+  const bars: [number, number][] = [];
+  for (const [bar, w] of [...weight].sort((x, y) => y[1] - x[1] || x[0] - y[0])) if (bars.length < 3 && bars.every(([b]) => Math.abs(b - bar) >= 4)) bars.push([bar, w]);
+  const most = Math.max(...bars.map(([, w]) => w));
+  for (const [bar, w] of bars) chosen.push({ frame: Math.min(...notes.filter((n) => n.bar === bar && n.beat === 0).map((n) => n.on)), strength: w === most ? 1 : 0.9 });
+  return chosen.sort((x, y) => x.frame - y.frame);
 })();
 /**
- * Each explosion: a frame, a kind (1 a Wraith's, 2 a Battlecruiser's), where. The heaviest downbeat gets three
- * Battlecruisers across the stage; the others a Wraith over each note the lead strikes on it (one in the middle if it
- * strikes none). Their own explosion sounds are heard (the user's choice).
+ * Each explosion: a frame, a kind (1 a Wraith's, 2 a Battlecruiser's), where. The strongest moments (strength 1, the
+ * most a timeline gives) get three Battlecruisers across the stage; the others a Wraith over each note the lead strikes
+ * then (one in the middle if it strikes none). Their own explosion sounds are heard (the user's choice).
  */
-export const explosions: readonly { frame: number; kind: number; x: number; y: number }[] = (() => {
-  const list: { frame: number; kind: number; x: number; y: number }[] = [];
-  BOOM_BARS.forEach((bar, k) => {
-    const struck = notes.filter((n) => n.bar === bar && n.beat === 0);
-    const lead = struck.filter((n) => n.part === LEAD_PART);
-    const frame = Math.min(...struck.map((n) => n.on));
-    if (k === 0) for (const dx of [-240, 0, 240]) list.push({ frame, kind: 2, x: CAM_X + 40 + dx, y: VIEW_Y + 110 });
-    else if (lead.length) for (const n of lead) list.push({ frame, kind: 1, x: stageX(n.note), y: VIEW_Y + 120 });
-    else list.push({ frame, kind: 1, x: CAM_X + 40, y: VIEW_Y + 120 });
-  });
-  return list.sort((a, b) => a.frame - b.frame);
-})();
+export const explosions: readonly { frame: number; kind: number; x: number; y: number }[] = BOOMS.flatMap((b) => {
+  if (b.strength >= 0.995) return [-240, 0, 240].map((dx) => ({ frame: b.frame, kind: 2, x: CAM_X + 40 + dx, y: VIEW_Y + 110 }));
+  const lead = piano.filter((n) => n.part === LEAD_PART && Math.abs(n.on - b.frame) <= 2);
+  return lead.length ? lead.map((n) => ({ frame: b.frame, kind: 1, x: stageX(n.note), y: VIEW_Y + 120 })) : [{ frame: b.frame, kind: 1, x: CAM_X + 40, y: VIEW_Y + 120 }];
+}).sort((x, y) => x.frame - y.frame);
 
 /* ── The tables the program plays back ── */
 

@@ -1,7 +1,8 @@
-Für Elise, the showcase build: a check play
-===========================================
+Für Elise, the showcase on the cinematic arrangement: a check play
+=================================================================
 
-Map: trigscript-fur-elise.scx (lobby "Für Elise"). About 3 minutes 40 seconds, nothing to press.
+Map: trigscript-fur-elise.scx (lobby "Für Elise"). About 2 minutes 40 seconds, nothing to press.
+(trigscript-fur-elise-straight.scx beside it is the same showcase on the straight piece, 3:38, for comparison.)
 Stills of what it should look like: fur-elise-showcase-frames.png beside the map (the minimap on the left, the main
 screen on the right, as the build works them out — not the game's own drawing).
 
@@ -13,21 +14,32 @@ What to record
 
 What is where
 -------------
-- Main screen: a keyboard of Flags, A1 to E7 (40 white keys, the black keys above them). Notes fall onto it, right hand
-  gold, left hand cyan; each key lights in its hand's colour while it sounds.
-- Minimap: the same notes falling onto a keyboard row (white and indigo keys), the orchestra's parts in violet during
-  the storm.
-- The storm (about 2:10 to 2:35): the right hand's chords red, the white keys flash red on each chord, explosions on
-  three downbeats (Wraiths at 2:12 and 2:23, three Battlecruisers on the last big chord at 2:33), with their sounds.
-- Text: "Für Elise" at the start; "Für Elise — Ludwig van Beethoven" when the last note is let go (about 3:25).
+- Main screen: a keyboard of Flags, A1 to E7 (40 white keys, the black keys above them). The piano's notes fall onto
+  it, right hand gold, left hand cyan; each key lights in its hand's colour while it sounds. Only the piano is drawn
+  there, all the way through.
+- Minimap: the same notes falling onto a keyboard row. In the storm and the final statement the rest of the band
+  (strings, brass, bass, synths, pads) falls in violet too, and the keyboard's front row pulses red on the biggest
+  drum hits. The intro and the ending show the piano alone.
+- The storm (about 1:12 to 1:36): the right hand's chords red, the white keys flash red on each chord.
+- Explosions, with the game's own explosion sounds (times from the start of the game, about):
+    0:16  the band comes in (its first downbeat): Wraiths over the melody
+    1:14  the storm's first big hit: three Battlecruisers
+    1:24  the storm, the middle: Wraiths
+    1:33  the storm's last big hit: three Battlecruisers
+    1:42  the final statement begins (the theme returns): three Battlecruisers
+    2:03  the final, a big bar: Wraiths
+    2:16  the final's last big bar: Wraiths
+- Text: "Für Elise" at the start; "Für Elise — Ludwig van Beethoven" when the last note is let go (about 2:28).
   After that the keyboard stays and the game waits; leave when the sound has rung out.
 
 What to look at
 ---------------
-1. Do the notes land on the keys as you hear them (not early, not late)? The clip now starts two frames before the
-   picture, to take up the ~95 ms the probe measured. ->
+1. Do the notes land on the keys as you hear them (not early, not late)? The clip starts two frames before the
+   picture, to take up the ~95 ms the visualizer probe measured. ->
 2. Does the main-screen keyboard fit in the view, both ends visible (A1 at the far left, E7 at the far right)? ->
 3. Do the first text line and the end line show the ü and the dash (—) properly? ->
-4. The storm: red chords, red flashes, the three explosions: right amount, or too much / too little? ->
-5. The minimap: does the violet orchestra in the storm read well, or is it clutter? ->
-6. Any stray unit, a Flag or Overlord in the wrong place, an error text, a stutter or slowdown? ->
+4. The explosions: the right moments, too many, too few? Are their sounds all right over this music? ->
+5. The minimap in the storm and the final: does the violet band read well, or is it clutter? Do the red pulses on the
+   drum hits help? ->
+6. Are the intro and the ending calm enough (only the piano)? ->
+7. Any stray unit, a Flag or Overlord in the wrong place, an error text, a stutter or slowdown? ->
