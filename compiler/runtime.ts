@@ -20,7 +20,7 @@ import { aiScriptByName, type ActionDef, type ArgKind, type ConditionDef } from 
 import { ACTION_IDENTS, CANONICAL, choiceOf, choiceWords, CONDITION_IDENTS, orderOfAction, scriptParams, TRIGGER_OPTION_NAMES } from "./api";
 import { ACTION_FIELDS, CONDITION_FIELDS } from "./record";
 import { hyperTriggers, negateCondition, PLAYER_SLOTS } from "./lower";
-import { allTables, type ScriptNames } from "./names";
+import { allTables, type NameTable, type ScriptNames } from "./names";
 import type { RaceId, ReadSource, TableCell, TextPart, UnitFilter } from "./ir";
 import { DEAF_KEYS, keyName, KEY_NAMES, LAST_SLOT, MOUSE_BUTTONS, parseChatPattern, type ChatPattern, type InputSource, type MouseButton } from "./input";
 import { JSX_FRAGMENT, TEXT_COLORS, builtText, jsxAtBuild } from "./jsx";
@@ -545,7 +545,7 @@ export function createRuntime(names: ScriptNames, collector: Collector, options:
     if (out.type !== undefined) {
       // Any Unit is no filter at all; Men, Buildings and Factories are the classes a trigger knows.
       if (out.type === 229) delete out.type;
-      else if (out.type > 232) throw new ScriptError(`${ident}: type is one of units.*.`);
+      else if (out.type < 0 || out.type >= names.unitTypes) throw new ScriptError(`${ident}: there is no unit type ${out.type}: they go from 0 to ${names.unitTypes - 1}.`);
     }
     // No location, and Anywhere, are everywhere.
     if (out.at !== undefined && (out.at === 0 || out.at === 64)) delete out.at;
@@ -716,7 +716,7 @@ export function createRuntime(names: ScriptNames, collector: Collector, options:
     selectionCount: Object.freeze({ __trigscript: "selectionCount", ident: "local.selectionCount" } satisfies SelectionCountValue),
   });
   rt.select = () => { throw new ScriptError("select() changes what a player has selected while the game runs: use it inside program()."); };
-  const tableNames: Record<TableKind, ScriptNames[keyof ScriptNames]> = { unit: names.units, weapon: names.weapons, upgrade: names.upgrades, tech: names.techs, player: names.players };
+  const tableNames: Record<TableKind, NameTable> = { unit: names.units, weapon: names.weapons, upgrade: names.upgrades, tech: names.techs, player: names.players };
   const entryName = (kind: TableKind, value: number): string => {
     const t = tableNames[kind];
     const e = t.entries.find((x) => x.value === value);

@@ -7093,6 +7093,25 @@ case, never `trigscript`). A script imports `"<id>/<module>"`, or `"<id>"` for `
   plugin-trigscript and hands it its rows as IR, and both go through the one layout call on save; the Magenta refusal in
   the build step goes with it. Not a third library plugin holding the backend alone: the backend consumes TrigScript's
   IR and passes, and a split would drag the compiler along or put a second interface in front of it.
+- **Programs on a mod's data set.** Open (C7 audit, 2026-11-08). With a data set other than the game's own in use (Help
+  ▸ Game Data…; Cosmonarchy BW: 3,000 unit types, 1,001 weapons, 100 upgrades, 100 techs, GPTP plugins), 4.3.0 takes
+  the script's unit, weapon, upgrade and tech names from the set (`compiler/names.ts`, `dataSetNamesOf`; identifiers by
+  `scmjs mod header`'s rule, `compiler/dataSetNames.ts`) and a trigger may name any of the set's types. A program's
+  unit walks and event filters take a type past the classes up to the set's count (`ScriptNames.unitTypes`; 65,536
+  without a set), asked of the unit's 16-bit type word (`backend/units.ts`, `exactType`). Everything else at memory
+  level stays the game's: the own backend's addresses (deaths `0x58a364` as 12 × 228, the unit table, units.dat and
+  the rest `stats()` reaches, `TABLE_SIZE` 228/130/61/44), Men / Buildings / Factories in a filter (units.dat's group
+  flags, a table of 228: a mod's type past it is read past the table's end), an action's unit type from a value
+  (stopped at 228, `emit.ts`), a chat pattern's unit names (below 228), `world.ts`'s `inClass` by id range, and "tests
+  in the game" (the engine's page plays
+  the `.scx` with the game's own data; `engine.test` carries no data set). 4.3.0 says so: a warning on the first
+  program in Problems and in the build's log, and a sentence after a run of the tests in the game. Not decided: a
+  mod-aware backend — where a GPTP mod's `.datex` tables and its moved arrays are (per mod, from its plugin? from the
+  set's files?), death counts for types past 227 (the game's table has 228 rows), classes
+  and actions' unit types from values past 227, the trigger classes 228–232 for a mod whose units sit there, `stats()` past
+  130/61/44 (the editor's `api.names.weapons()` / `upgrades()` / `techs()` list only those widths: the audit's
+  "list widths" question), and tests in the game with the set (scm-sim's engine page would take the set as Test Map's
+  `dataSet` does).
 
 ## Facts this plan leans on
 

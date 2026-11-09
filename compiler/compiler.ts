@@ -577,7 +577,7 @@ export function compileScript(ts: typeof TS, files: ScriptFiles, names: ScriptNa
     let emitted: ReturnType<Structured["run"]>;
     for (let walk = 0; ; walk++) {
       const said: [TS.Node, string, "compiler" | "script" | undefined][] = [];
-      emitted = new Structured({ ts, checker, body, owner, owners, perPlayer: entry.options.perPlayer, strings: collector.strings, error: (node, message, source) => { said.push([node, message, source]); }, resolve, classBody, functionBody, boxed, refs, classes: scriptClasses() }).run();
+      emitted = new Structured({ ts, checker, body, owner, owners, perPlayer: entry.options.perPlayer, strings: collector.strings, error: (node, message, source) => { said.push([node, message, source]); }, resolve, classBody, functionBody, boxed, refs, classes: scriptClasses(), unitTypes: names.unitTypes }).run();
       if ((emitted.boxes?.length || emitted.refs?.length) && walk < 6) { for (const d of emitted.boxes ?? []) boxed.add(d); for (const c of emitted.refs ?? []) refs.add(c); continue; }
       for (const [node, message, source] of said) nodeError(node, message, source);
       break;

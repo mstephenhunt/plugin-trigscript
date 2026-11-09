@@ -292,6 +292,12 @@ export interface ScriptNames {
 	orders: NameTable;
 	/** The map's sounds, the Sound Editor's list: each the string of its path, what Play WAV takes. */
 	sounds: NameTable;
+	/**
+	 * How many unit type ids there are, what a program's unit filter may name below: the data set's count when it names
+	 * its own (`NameSources.dataSet`), else 65,536 (a unit's type, and a trigger's unit field, are 16 bits). 228–232 are
+	 * the game's None and the trigger's unit classes whatever the count.
+	 */
+	unitTypes: number;
 }
 /** What a map contributes to the tables; every part is optional (the fixed lists stand without a map). */
 export interface NameSources {
@@ -311,6 +317,27 @@ export interface NameSources {
 		stringIndex: number;
 		path: string;
 	}[];
+	/** The data set in use, when it names things otherwise than the game; the game's own names without it. */
+	dataSet?: DataSetNames;
+}
+/**
+ * A data set's names, by id: each list given replaces the game's for its table, and a table without one keeps the
+ * game's. A name that is empty or a placeholder ("None", "Reserved", "Unused", "*") makes no entry; the id is still
+ * written as a number.
+ */
+export interface DataSetNames {
+	/** What the editor calls the set ("Cosmonarchy BW"), for the declarations. */
+	name: string;
+	/**
+	 * Every unit type the set has, by units.dat id: past 227 too, which a trigger names as any other (the field is 16
+	 * bits). 228–232 are not read from here: they are the game's None and the trigger's unit classes (Any unit, Men,
+	 * Buildings, Factories), whatever the set calls them.
+	 */
+	units?: readonly string[];
+	/** weapons.dat, upgrades.dat and techdata.dat names by id, over the ids `stats()` reaches (130, 61 and 44). */
+	weapons?: readonly string[];
+	upgrades?: readonly string[];
+	techs?: readonly string[];
 }
 /** The tables for a map's names — or, with nothing given, the fixed lists alone (what tests use). */
 export declare function scriptNames(src?: NameSources): ScriptNames;

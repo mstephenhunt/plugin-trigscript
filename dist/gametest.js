@@ -764,7 +764,7 @@ var World = class {
     return this.units.filter((u) => u.alive && this.table[u.slot] === u);
   }
   typed(u, type) {
-    return type === void 0 || (type >= 229 ? this.classOf(u.type, type) : u.type === type);
+    return type === void 0 || (type >= 229 && type <= 232 ? this.classOf(u.type, type) : u.type === type);
   }
   inside(u, location) {
     const box = location === void 0 || location === 0 ? void 0 : this.locations.get(location);
@@ -798,7 +798,7 @@ var World = class {
   /** The kills these players have of a type or a class. */
   kills(owners, type) {
     let n = 0;
-    for (const [key, count] of this.killed) if (owners.includes(key % 4096) && (type >= 229 ? this.classOf(Math.floor(key / 4096), type) : Math.floor(key / 4096) === type)) n += count;
+    for (const [key, count] of this.killed) if (owners.includes(key % 4096) && (type >= 229 && type <= 232 ? this.classOf(Math.floor(key / 4096), type) : Math.floor(key / 4096) === type)) n += count;
     return n;
   }
   /* ── conditions ── */
@@ -4198,7 +4198,8 @@ function expect(actual) {
       /** A text shown to a player: all of it, or a pattern it matches. `to`: only what that player was shown. */
       toHavePrinted: (e, options) => {
         const lines = sim("toHavePrinted").printed(options?.to);
-        if (lines.some((l) => typeof e === "string" ? l === e || l.includes(e) : e.test(l)) !== not) return;
+        const matches = (l) => typeof e === "string" ? l === e || l.includes(e) : e.test(l);
+        if (lines.some((l) => matches(l) || matches(l.replace(/[\x01-\x1f]/g, ""))) !== not) return;
         throw new ExpectError(`expected ${not ? "nothing" : "something"} printed that matches ${brief(e)}; printed: ${lines.length ? lines.map((l) => JSON.stringify(l)).join(", ") : "nothing"}`, show(e), show(lines));
       },
       /** The simulator said a program did what is always a mistake; asking for it is what lets a test go on past it. */
@@ -6477,7 +6478,7 @@ function createRuntime(names, collector, options = {}) {
     if (out.owner !== void 0) out.owner = onePlayer(out.owner, `${ident}: owner`, 12);
     if (out.type !== void 0) {
       if (out.type === 229) delete out.type;
-      else if (out.type > 232) throw new ScriptError(`${ident}: type is one of units.*.`);
+      else if (out.type < 0 || out.type >= names.unitTypes) throw new ScriptError(`${ident}: there is no unit type ${out.type}: they go from 0 to ${names.unitTypes - 1}.`);
     }
     if (out.at !== void 0 && (out.at === 0 || out.at === 64)) delete out.at;
     if (out.at !== void 0 && out.at > 255) throw new ScriptError(`${ident}: at is one of locations.*.`);

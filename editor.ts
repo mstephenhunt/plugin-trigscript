@@ -722,7 +722,16 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
     const message = t("The programs will not be built: TrigScript does not take this yet ({reason}). The map is saved without them.", { reason });
     return [{ file: at?.[2] ?? ENTRY_FILE, line: at ? Number(at[1]) : 1, message, source: "build" }];
   };
-  const allWarnings = (): ScriptWarning[] => [...warningsOf(tests, t), ...ownWarnings()];
+  /**
+   * A data set other than the game's own in use (a mod): a word on the first program, that programs work with the
+   * game's own memory and data. Trigger() calls are not concerned: they are the map's triggers, which the mod reads.
+   */
+  const dataSetWarnings = (): ScriptWarning[] => {
+    const first = result?.programs[0];
+    const notice = first ? svc.dataSetNotice("programs") : null;
+    return first && notice ? [{ file: first.source.file, line: first.source.line, message: notice, source: "build" }] : [];
+  };
+  const allWarnings = (): ScriptWarning[] => [...warningsOf(tests, t), ...ownWarnings(), ...dataSetWarnings()];
 
   const renderProblems = () => {
     // A failing test and an only left in are warnings: said here, and no obstacle to a build unless the map's settings make one of them.
@@ -912,7 +921,11 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
       const differ = ran.filter((x) => { const s = tests.results.get(x.id); return s && s.status !== "skipped" && s.status !== x.status; });
       if (failed.length) { chosenTest = failed[0].id; shell.showPanel("tests"); }
       const said = t("In the game: {passed} of {n, plural, one {# test} other {# tests}} passed.", { passed: ran.length - failed.length, n: ran.length });
-      const whole = notRun.length ? `${said} ${t("{n, plural, one {# test of several players was} other {# tests of several players were}} not run: this browser cannot run copies of the game.", { n: notRun.length })}` : said;
+      const told = notRun.length ? `${said} ${t("{n, plural, one {# test of several players was} other {# tests of several players were}} not run: this browser cannot run copies of the game.", { n: notRun.length })}` : said;
+      // (The engine's page plays the map with the game's own data whatever set the editor has: said, with a mod's in use.)
+      const dataSet = svc.dataSetNotice("tests");
+      const whole = dataSet ? `${told} ${dataSet}` : told;
+      if (dataSet) log(dataSet, false);
       setStatus(failed.length || differ.length ? "error" : notRun.length ? "info" : "ok", differ.length ? `${whole} ${t("The simulator disagrees on {n, plural, one {# test} other {# tests}}.", { n: differ.length })}` : whole, NOTICE_MS);
     } catch (err) {
       setStatus("error", t("Not run in the game: {message}", { message: (err as Error).message }));
@@ -1989,6 +2002,8 @@ function createWorkspace(svc: ScriptService, options: OpenOptions, mode: Workspa
       api.events.on("settings", refreshNames),
       api.events.on("locations", refreshNames),
       api.events.on("triggers", refreshNames),
+      // Another data set, or the set's names loaded: a mod's units are the script's names.
+      api.events.on("gameData", refreshNames),
       // The script belongs to the map: another map, or none, closes the workspace.
       api.events.on("document", () => close()),
     ];

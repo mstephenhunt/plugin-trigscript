@@ -37,7 +37,7 @@
  * (P2 here) is a computer that owns no pixel. A pixel is an Overlord, which sits on any ground and on nothing else; keep
  * the screen's tiles clear of buildings. A Pylon needs buildable ground, and none of the map's own units in the way. About 80 pixels made and taken away in a frame did not slow the game.
  */
-import { centerLocation, createUnit, removeUnitAt, reserveLocation, textColors, units, P1, P3, P4, P5, P6, P7, P8, type Player } from "trigscript";
+import { centerLocation, createUnit, removeUnitAt, reserveLocation, textColors, P1, P3, P4, P5, P6, P7, P8, type Player, type UnitType } from "trigscript";
 
 /**
  * Whose units show colours 1 to 7 on the map, in the order of TEXT_COLORS: give each player that colour in the map
@@ -109,7 +109,7 @@ export class Screen {
     this.width = width;
     this.height = height;
     this.cell = 64;
-    this.unit = look === "solid" ? units.ProtossPylon : units.ZergOverlord;
+    this.unit = (look === "solid" ? 156 : 42) as UnitType; // Protoss Pylon, Zerg Overlord: the game's own ids, the same under a mod's names
   }
 
   /** Every pixel the colour (0, empty, unless it says). */
@@ -225,7 +225,7 @@ export class Screen {
       let px = this.x * 32 + 96;
       while (px < right + 96) {
         centerLocation(SPOT, px, py, 32, 32);
-        createUnit(player, units.MapRevealer, 1, SPOT);
+        createUnit(player, 101 as UnitType, 1, SPOT); // Map Revealer
         px += 192;
       }
       py += 192;
