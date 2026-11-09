@@ -4,7 +4,7 @@
  * transcription played on a tempo that moves.
  */
 import { describe, expect, it } from "vitest";
-import { FRAME, changesOver, frameNotes, isBlack, keyRange, keyX, rollCells, whiteKeys, type FramedNote, type Pixel } from "../probes/lib/note-timeline";
+import { FRAME, changesOver, fitKeys, frameNotes, isBlack, keyRange, keyX, rollCells, whiteKeys, type FramedNote, type Pixel } from "../probes/lib/note-timeline";
 import { A_PLAYING, A_SECTION, STORM, STORM_PLAYING, THEME_TWICE, barStarts, length, noteNumber, perform } from "../probes/lib/fur-elise-probe-score";
 
 const note = (time: number, seconds: number, n: number, hand = 0) => ({ time, seconds, note: n, hand, velocity: 1 });
@@ -162,5 +162,31 @@ describe("the transcription, played", () => {
     const bars = barStarts(THEME_TWICE, A_PLAYING);
     expect(bars.length).toBe(THEME_TWICE.length + 1);
     expect(bars.at(-1)).toBeCloseTo(length(THEME_TWICE, A_PLAYING), 9);
+  });
+});
+
+describe("a keyboard fitted to the notes", () => {
+  it("holds every note when they fit, white key to white key", () => {
+    const k = fitKeys([45, 52, 63, 76], 64);
+    expect([k.lo, k.hi, k.fold(63)]).toEqual([45, 76, 63]);
+    expect(fitKeys([44, 70], 64)).toMatchObject({ lo: 43, hi: 71 });
+  });
+
+  it("keeps the window with the most notes and moves the rest in by octaves", () => {
+    // A1 … E7 is 68 keys; 63 hold all but the three A1s, which show an octave up.
+    const pitches = [33, 33, 33, ...Array.from({ length: 63 }, (_, i) => 38 + i), 100, 100];
+    const k = fitKeys(pitches, 63);
+    expect([k.lo, k.hi]).toEqual([38, 100]);
+    expect(k.fold(33)).toBe(45);
+    expect(k.fold(101)).toBe(89);
+  });
+
+  it("counts white keys when asked", () => {
+    // A1 … E7 has 40 white keys: they fit in 40, not in 30.
+    const k = fitKeys([33, 100], 40, "whites");
+    expect([k.lo, k.hi]).toEqual([33, 100]);
+    const narrow = fitKeys([33, ...Array.from({ length: 30 }, (_, i) => 50 + i)], 30, "whites");
+    expect(whiteKeys(narrow.lo, narrow.hi).length).toBeLessThanOrEqual(30);
+    expect(narrow.fold(33)).toBeGreaterThanOrEqual(narrow.lo);
   });
 });

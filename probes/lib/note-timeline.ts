@@ -154,3 +154,38 @@ export function changesOver(frames: number, picture: (f: number) => readonly Pix
   }
   return out;
 }
+
+/** A keyboard fitted to notes: its lowest and highest key, and where a note outside it is shown (an octave in). */
+export interface FittedKeys { readonly lo: number; readonly hi: number; fold(note: number): number }
+
+/**
+ * The keyboard that shows the most of `pitches` in at most `most` keys (`count: "keys"`) or white keys (`"whites"`),
+ * from a white key to a white key: every note when they fit; else the window holding the most of them, and each note
+ * outside it moved by octaves to the nearest it can be inside (a keyboard on a map has only so many columns).
+ */
+export function fitKeys(pitches: readonly number[], most: number, count: "keys" | "whites" = "keys"): FittedKeys {
+  if (!pitches.length) throw new Error("fitKeys: no notes.");
+  const size = (lo: number, hi: number) => (count === "keys" ? hi - lo + 1 : whiteKeys(lo, hi).length);
+  const all = keyRange(pitches.map((note) => ({ note })));
+  let lo = all.lo, hi = all.hi;
+  if (size(lo, hi) > most) {
+    // Every window from a white key, as wide as allowed: the one holding the most notes (the lower on a tie).
+    let best = -1;
+    for (let a = all.lo; a <= all.hi; a++) {
+      if (isBlack(a)) continue;
+      let b = a;
+      while (b + 1 <= all.hi && size(a, b + 1) <= most) b++;
+      if (isBlack(b)) b--;
+      const held = pitches.filter((p) => p >= a && p <= b).length;
+      if (held > best) { best = held; lo = a; hi = b; }
+    }
+    if (hi - lo < 11) throw new Error(`fitKeys: ${most} ${count} cannot hold an octave.`);
+  }
+  const fold = (note: number) => {
+    let n = note;
+    while (n < lo) n += 12;
+    while (n > hi) n -= 12;
+    return n;
+  };
+  return { lo, hi, fold };
+}
