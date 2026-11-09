@@ -93,6 +93,18 @@ describe("the .samples file", () => {
     expect(text.length).toBeLessThan(rec[0].length * 4 * (4 / 3) * 0.6);
   });
 
+  it("names every clip made from an instrument by the instrument too: change one recording, every name changes", () => {
+    const one = (level: number) => writeSamples({ rate: RATE, samples: [{ name: "a", channels: ring(220, 0.5, 0.5) }, { name: "b", channels: ring(440, 0.5, level) }], zones: [
+      { sample: 0, key: 57, lo: 0, hi: 62, vlo: 1, vhi: 127 }, { sample: 1, key: 69, lo: 63, hi: 127, vlo: 1, vhi: 127 },
+    ] });
+    // Only recording b differs; the clip played is made from recording a.
+    const names = (text: string) => compileScript(ts, { "main.ts": `import inst from "./inst.samples";\nprogram(async () => { playWav(inst.zones[0].clip.gain(0.5), 0); });`, "inst.samples": text }, defaultScriptNames(), { lib: LIB, sounds: false }).sounds.map((x) => x.path);
+    const [a, b] = [names(one(0.5)), names(one(0.4))];
+    expect(a.length).toBe(1);
+    expect(a).not.toEqual(b);
+    expect(names(one(0.5))).toEqual(a);
+  });
+
   it("refuses a zone that names no recording, and says what it holds on the hover", () => {
     expect(() => writeSamples({ rate: RATE, samples: [], zones: [{ sample: 0, key: 60, lo: 0, hi: 127, vlo: 1, vhi: 127 }] })).toThrow(/names recording 0/);
     expect(describeSamples(instrument())).toMatch(/^A sampled instrument, Test: 6 recordings .* 6 zones at 22,050 Hz\. Ours \(CC0\)\.$/);
@@ -221,6 +233,27 @@ describe("music.excerpt", () => {
       const sum = mixdown([{ clip: a, at: 0 }, { clip: b, at: 2 }]);
       if (Math.abs(sum.lufs + 20) > 0.2) fail(\`\${sum.lufs}\`);
       if (Math.abs(a.peak / b.peak - 10) > 0.01) fail(\`\${a.peak / b.peak}\`);`);
+    expect(errors(r)).toEqual([]);
+  });
+});
+
+describe("music.hits and the trailer presets", () => {
+  it("plays each key's clip whole, unpitched, as loud as its velocity, in a performance beside a note instrument", () => {
+    const r = run(`
+      const boom = tone(50, 2, { volume: 0.5 }), tick = noise(0.05, { volume: 0.3 });
+      const fx = music.hits({ C2: boom, D2: tick });
+      if (fx.note("C2", 0.1) !== boom) fail("note");
+      if (Math.abs(fx.strike!("C2", 0.1, 0.5).peak - boom.peak * 0.5) > 1e-6) fail("strike");
+      const take = music.perform({ meter: "3/8", bpm: 120 }, { fx: { instrument: fx, notes: "C2/16@100 r D2 r/4" } });
+      const mix = music.render(take, { limit: false });
+      // The boom whole, two seconds, though the note is a sixteenth.
+      if (Math.abs(mix.seconds - 2) > 0.05) fail(\`\${mix.seconds}\`);
+      const both = music.render(music.perform({ meter: "3/8", bpm: 120 }, { fx: { instrument: fx, notes: "C2/16@100 r D2 r/4" }, pad: { instrument: music.presets.braam(), notes: "A1/4." } }), { limit: false });
+      if (!(both.seconds >= 2)) fail(\`\${both.seconds}\`);
+      for (const p of [music.presets.braam(), music.presets.pulse(), music.presets.sub()]) if (!(p.note("A2", 0.5).seconds >= 0.49)) fail("preset");
+      let refused = "";
+      try { fx.note("E2", 1); } catch (e) { refused = String(e); }
+      if (!/no clip for E2/.test(refused)) fail(refused);`);
     expect(errors(r)).toEqual([]);
   });
 });

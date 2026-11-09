@@ -1,0 +1,19 @@
+{
+  "root": "../../../samples/vsco2-ce",
+  "release": 3,
+  "drums": {
+    "C2": ["Percussion/BDrumNewhit_*"],
+    "C#2": ["VSCO 1 Percussion/drums/bass/bdrum_ppp_*", "VSCO 1 Percussion/drums/bass/bdrum_pp_*", "VSCO 1 Percussion/drums/bass/bdrum_p_*", "VSCO 1 Percussion/drums/bass/bdrum_mp_*", "VSCO 1 Percussion/drums/bass/bdrum_f_*", "VSCO 1 Percussion/drums/bass/bdrum_ff_*", "VSCO 1 Percussion/drums/bass/bdrum_fff_*"],
+    "D2": ["VSCO 1 Percussion/drums/bass/bdrum_muted_*"],
+    "E2": ["VSCO 1 Percussion/drums/tenor/tenor_lower/tenor_*"],
+    "F#2": ["VSCO 1 Percussion/drums/tenor/tenor_higher/tenorH_*"],
+    "G2": ["Percussion/Snare2-HitSN_*"],
+    "G#2": ["Percussion/Snare2-rollSN_*"],
+    "C#3": ["Percussion/cymbal-crash1_*"],
+    "D#3": ["Percussion/susCymb1-hit_*"],
+    "E3": ["Percussion/susCymb1-cresc-Short_*"],
+    "F3": ["Percussion/susCymb1-cresc-Median_*"],
+    "F#3": ["Percussion/susCymb1-cresc-Long_*"],
+    "G3": ["Percussion/gongHit_*"]
+  }
+}

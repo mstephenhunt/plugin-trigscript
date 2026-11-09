@@ -6764,6 +6764,48 @@ the probe's lobby.
   `tests/game-media.test.ts`). The editor's host does not pass them yet.
 - A module-level name `together` collides with the library's (as `sounds` did in the probe).
 
+#### S7 the cinematic arrangement (built 2026-11-09)
+
+The user on the straight soundtrack: "sounds okay but it takes awhile to get going, can we do a stylistic
+arrangement?" and "some of the notes sound a bit sharp" (B3/C4/C#4 a semitone sharp: an SFZ region with no root, fixed
+in e67671d). Chosen: a cinematic hybrid — piano, orchestra, big percussion, synth pulses — about 2:30.
+
+- **The form** (`probes/lib/fur-elise-cinematic-score.ts`, the piano's notes the score's; frames at 42 ms):
+  intro 0:00 (frame 0) — bars 1 … 8 on the piano alone, free in time, a drone creeping in, a riser made to end on the
+  band's downbeat; band 0:12.7 (302) — the theme, its repeat and the middle part at 144 eighths a minute, steady, felt
+  in 6/8; lift 0:48.9 (1165) — the F major episode as a breath, pulses at its thirty-seconds, the E–D# made a build
+  (riser, tom fills, snare roll); storm 1:08.9 (1642) — the drumming A as a taiko pulse, then everything, the climax;
+  breakdown 1:32.1 (2192) — the arpeggios and the run over a pumping pad; final 1:38.8 (2352) — the theme big, with
+  its repeat and the middle part to bar 18; ending 2:13.9 (3189) — the band gone, bars 19 … 21 and the held A on the
+  piano alone. The whole 2:36.5 (the music 2:22, then the hall).
+- **The palette:** the Salamander piano as the lead throughout (a quick compressor on it; its ff chords stood 6 dB
+  over everything's peaks); VSCO strings (spiccato ostinatos from each bar's chord, held strings, the probe's storm
+  parts), horns, trombones and tuba (braams with the synth braam on the strong bars), timpani; a new VSCO percussion kit
+  (gran cassa, bass drums, tenor drums, snare and roll, crash, suspended cymbal, gong) as taiko patterns over two bars;
+  synths made in the script: braam, sub, pad (pumping a bar), pulses, supersaw in the climax, the library's kick,
+  impacts, a sub drop, risers, a crash reversed. Each part's level set by measuring it alone in the storm against the
+  piano at −13 LUFS.
+- **Mixing:** each section rendered apart in the hall (the band's through a 2:1 bus), section faders (storm +1 dB,
+  final −2), one gain for all (`together(…, { lufs })`), the whole limited once to 0.8. −14.0 LUFS integrated, true peak
+  −1.4 dBTP decoded (the band section's clip −1.0). Short-term: intro −19, band −13 … −16, lift −15, storm −11 … −12,
+  breakdown −16.5, final −14, ending −21. The limiter takes up to ~6 dB off the storm's biggest hits. 3.2 MB at q6.
+- **Library and tools:** `music.hits` (one-shots in a performance), presets braam / pulse / sub, make-samples `--kit`,
+  `scripts/tuning-check.mts` (a render against its timeline) and `scripts/samples-tuning.mts` (an instrument's zones);
+  a sampled instrument's identity in every clip name made from it (no ENGINE bump).
+- **Tuning:** the cinematic whole — 58 pitches checked, one flagged: the trombones' C#3, two notes under the storm's
+  braam (its A1's fifth harmonic on C#3's second); rendered alone they are −1 cents. 11 pitches under 80 Hz (the sub)
+  not judged. The straight soundtrack after the fix: 55 checked, none off. The instruments: the horn's G2, the tuba's
+  F1, timpani 5's ff off, none of them played.
+- **Timeline:** `probes/lib/fur-elise-cinematic-timeline.ts` (beside the straight one, which gained ROLES and HITS):
+  3,644 notes, PARTS and ROLES (lead, accomp, strings, brass, bass, synth, pad, drum-low, drum-high, cymbal, impact,
+  riser), SECTIONS with frames, BARS, PEDAL, HITS (100: impacts, and low drums and cymbals at velocity 110 or more,
+  `[at, frame, strength, part]`). The render is `probes/lib/fur-elise-cinematic.ts` (importing it starts nothing);
+  `probes/fur-elise-cinematic.ts` plays it.
+
+**Open:** the user's ears. The final statement is dense (LRA 1.0) — a wall of sound by design, maybe too much; the
+storm's hits are limited hard. Previews: Maps/TrigScript/fur-elise-sound-preview/cinematic/.
+
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice

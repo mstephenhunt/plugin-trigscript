@@ -264,16 +264,22 @@ export function readSamples(text: string): Samples {
   checkZones(h.zones, h.samples.length);
   const data = fromBase64(h.data);
   let o = 0, seconds = 0;
-  const clips = h.samples.map((s) => {
+  // Each recording's own hash, then the instrument's: its zones and every recording's hash together. Every clip made
+  // from it is named by both, so an instrument changed in any way — a recording, a zone's key or strength — gives every
+  // clip made from it a new file name, and a map that keeps the files whose names it has (withSounds) takes the new
+  // ones. Cheap: the coded bytes are hashed, nothing is decoded.
+  const parts = h.samples.map((s) => {
     const bytes = data.subarray(o, o + s.bytes);
     o += s.bytes;
     if (bytes.length < s.bytes) throw new Error(`The recording ${s.name} ends too soon: the file is cut short.`);
     seconds += s.frames / rate;
-    return storedClip(`samples:${hashBytes(bytes)}:${s.channels}:${s.frames}:${rate}`, rate, s.frames, s.channels, () => {
-      const r = new BitReader(bytes);
-      return Array.from({ length: s.channels }, () => decodeChannel(r, s.frames));
-    });
+    return { s, bytes, hash: hashBytes(bytes) };
   });
+  const identity = hashBytes(new TextEncoder().encode(`${rate}|${JSON.stringify(h.zones)}|${parts.map((p) => p.hash).join(",")}`));
+  const clips = parts.map(({ s, bytes, hash }) => storedClip(`samples:${identity}:${hash}:${s.channels}:${s.frames}:${rate}`, rate, s.frames, s.channels, () => {
+    const r = new BitReader(bytes);
+    return Array.from({ length: s.channels }, () => decodeChannel(r, s.frames));
+  }));
   const zones = h.zones.map((z) => Object.freeze({ ...z, clip: clips[z.sample] }));
   return Object.freeze({
     __trigscript: "samples" as const, name: typeof h.name === "string" ? h.name : "", credit: typeof h.credit === "string" ? h.credit : "",
