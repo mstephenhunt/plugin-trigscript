@@ -1,11 +1,11 @@
 /**
- * The Für Elise visualizer's build-time helpers (probes/lib/note-timeline.ts, probes/lib/fur-elise-score.ts): notes on
+ * The Für Elise visualizer's build-time helpers (probes/lib/note-timeline.ts, probes/lib/fur-elise-probe-score.ts): notes on
  * the game's clock, the keyboard they need, a piano roll's cells frame by frame, pictures turned into changes, and the
  * transcription played on a tempo that moves.
  */
 import { describe, expect, it } from "vitest";
 import { FRAME, changesOver, frameNotes, isBlack, keyRange, keyX, rollCells, whiteKeys, type FramedNote, type Pixel } from "../probes/lib/note-timeline";
-import { A_PLAYING, A_SECTION, STORM, STORM_PLAYING, THEME_TWICE, barStarts, length, noteNumber, perform } from "../probes/lib/fur-elise-score";
+import { A_PLAYING, A_SECTION, STORM, STORM_PLAYING, THEME_TWICE, barStarts, length, noteNumber, perform } from "../probes/lib/fur-elise-probe-score";
 
 const note = (time: number, seconds: number, n: number, hand = 0) => ({ time, seconds, note: n, hand, velocity: 1 });
 const framed = (on: number, len: number, n = 60): FramedNote => ({ source: note(0, 0, n), on, len, note: n, hand: 0, velocity: 1, chord: false });

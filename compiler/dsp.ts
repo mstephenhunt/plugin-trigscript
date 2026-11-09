@@ -314,3 +314,107 @@ export function pluckVoice(hz: number, rate: number, n: number, brightness: numb
   }
   return out;
 }
+
+/* ── Loudness, and strings that ring in sympathy ── */
+
+/** A biquad's coefficients, b over a (a0 = 1). */
+type Biquad = readonly [b0: number, b1: number, b2: number, a1: number, a2: number];
+function biquad(x: Float32Array, [b0, b1, b2, a1, a2]: Biquad): Float32Array {
+  const out = new Float32Array(x.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < x.length; i++) {
+    const y = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1; x1 = x[i]; y2 = y1; y1 = y; out[i] = y;
+  }
+  return out;
+}
+
+/**
+ * Integrated loudness in LUFS, as ITU-R BS.1770-4 measures it (EBU R 128's figure): each channel through the K-weighting
+ * (a high shelf, +4 dB above 1.7 kHz, then a high-pass at 38 Hz, made for the clip's rate as libebur128 makes them),
+ * its power over 400 ms blocks three-quarters overlapping, the blocks under −70 LUFS left out, then those more than
+ * 10 LU under the mean of the rest. −Infinity for silence. A clip of one channel is measured as the game plays it, from
+ * both sides (a full-scale 997 Hz sine: 0 LUFS, where BS.1770 has −3.01 for it on one channel alone).
+ */
+export function loudness(chans: Channels, rate: number): number {
+  if (chans.length === 1) chans = [chans[0], chans[0]];
+  let K = Math.tan((Math.PI * 1681.974450955533) / rate);
+  const Vh = 10 ** (3.999843853973347 / 20), Vb = Vh ** 0.4996667741545416, Q1 = 0.7071752369554196;
+  let a0 = 1 + K / Q1 + K * K;
+  const shelf: Biquad = [(Vh + (Vb * K) / Q1 + K * K) / a0, (2 * (K * K - Vh)) / a0, (Vh - (Vb * K) / Q1 + K * K) / a0, (2 * (K * K - 1)) / a0, (1 - K / Q1 + K * K) / a0];
+  K = Math.tan((Math.PI * 38.13547087602444) / rate);
+  const Q2 = 0.5003270373238773;
+  a0 = 1 + K / Q2 + K * K;
+  const high: Biquad = [1, -2, 1, (2 * (K * K - 1)) / a0, (1 - K / Q2 + K * K) / a0];
+  const weighted = chans.map((c) => biquad(biquad(c, shelf), high));
+  const n = chans[0].length, block = Math.round(0.4 * rate), step = Math.round(0.1 * rate);
+  if (n < block) return -Infinity;
+  // The power of each block, the channels added (each weighs 1: left and right, or the one).
+  const powers: number[] = [];
+  const prefix = weighted.map((w) => { const p = new Float64Array(n + 1); for (let i = 0; i < n; i++) p[i + 1] = p[i] + w[i] * w[i]; return p; });
+  for (let from = 0; from + block <= n; from += step) {
+    let z = 0;
+    for (const p of prefix) z += (p[from + block] - p[from]) / block;
+    powers.push(z);
+  }
+  const lufs = (z: number) => -0.691 + 10 * Math.log10(z);
+  const above = powers.filter((z) => z > 0 && lufs(z) > -70);
+  if (above.length === 0) return -Infinity;
+  const gate = lufs(above.reduce((a, b) => a + b, 0) / above.length) - 10;
+  const kept = above.filter((z) => lufs(z) > gate);
+  return lufs(kept.reduce((a, b) => a + b, 0) / kept.length);
+}
+
+/**
+ * What the strings of a piano add while its sustain pedal is down: every damper lifted, each string answers the
+ * partials of the notes played that fall on its own — a comb filter a string from A0 to E6 (the keys with dampers),
+ * tuned to it, each fed the sound while the pedal is down and ringing `decay` seconds (to −60 dB; the low strings
+ * longer, the high ones shorter), and stopped in a tenth of a second when the pedal comes up and the dampers fall.
+ * The strings low to high are heard from left to right, as the player hears them. Only what they add comes out,
+ * `amount` of it (a string answering a partial held on its pitch comes back that loud); `pedal` is [down, up] in seconds.
+ */
+export function sympathetic(chans: Channels, rate: number, pedal: Points, amount: number, decay: number, frames: number): Float32Array[] {
+  const n = chans[0].length, L = new Float32Array(frames), R = new Float32Array(frames);
+  // Whether the dampers are up, each sample, eased over 20 ms either way.
+  const up = new Float32Array(frames), ease = Math.max(1, Math.round(0.02 * rate));
+  for (const [down, lift] of pedal) {
+    const a = Math.max(0, Math.round(down * rate)), b = Math.min(frames, Math.round(lift * rate));
+    for (let i = a; i < b; i++) up[i] = 1;
+  }
+  const open = new Float32Array(frames);
+  let g = 0;
+  for (let i = 0; i < frames; i++) { g += (up[i] - g) / ease; open[i] = g; }
+  const x = new Float32Array(frames);
+  for (let i = 0; i < Math.min(n, frames); i++) {
+    let s = 0;
+    for (const c of chans) s += c[i];
+    x[i] = (s / chans.length) * open[i];
+  }
+  const damped = 0.1;
+  for (let m = 21; m <= 88; m++) {
+    const hz = 440 * 2 ** ((m - 69) / 12), delay = rate / hz;
+    // The string's ring: the low strings half again as long as `decay`, the top ones half as long.
+    const t60 = decay * (1.5 - (m - 21) / 67);
+    const gDown = 10 ** ((-3 * delay) / (rate * t60)), gUp = 10 ** ((-3 * delay) / (rate * damped));
+    const size = Math.ceil(delay) + 2, buf = new Float32Array(size);
+    const d0 = Math.floor(delay), frac = delay - d0;
+    const pan = (m - 21) / 67, gl = Math.cos((pan * Math.PI) / 2), gr = Math.sin((pan * Math.PI) / 2);
+    let w = 0, lp = 0, energy = 0;
+    for (let i = 0; i < frames; i++) {
+      const r1 = (w - d0 + size) % size, r2 = (r1 - 1 + size) % size;
+      const back = buf[r1] * (1 - frac) + buf[r2] * frac;
+      lp = 0.75 * back + 0.25 * lp;
+      const gk = gUp + (gDown - gUp) * open[i];
+      const y = x[i] + gk * lp;
+      buf[w] = y;
+      w = (w + 1) % size;
+      // What comes out is the string's ring alone, scaled so that a partial held on its pitch returns as loud.
+      const out = (y - x[i]) * (1 - gDown) * amount;
+      L[i] += gl * out;
+      R[i] += gr * out;
+      energy = energy * 0.999 + Math.abs(y);
+      if (energy < 1e-9 && open[i] === 0 && i > n) break;
+    }
+  }
+  return [L, R];
+}

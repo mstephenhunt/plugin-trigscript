@@ -2,9 +2,9 @@
 // starts on which frame, the text shown, and the picture of every frame on both screens, turned into the changes the
 // program plays back. Plain data and functions — no sound, nothing of the game's — so the same run is what the probe
 // plays, what tests/fur-elise-run.test.ts checks and what a picture of a frame is drawn from
-// (probes/lib/fur-elise-frames.mts).
+// (probes/lib/fur-elise-frames.mts). It plays the probe's own notes (fur-elise-probe-score.ts), as the probe was played.
 import { FRAME, changesOver, frameNotes, isBlack, keyRange, keyX, rollCells, type FramedNote, type Pixel } from "./note-timeline";
-import { A_PLAYING, A_SECTION, STORM, STORM_PLAYING, THEME_TWICE, barStarts, length, perform, type PlayedNote } from "./fur-elise-score";
+import { A_PLAYING, A_SECTION, STORM, STORM_PLAYING, THEME_TWICE, barStarts, length, perform, type PlayedNote } from "./fur-elise-probe-score";
 import {
   LO, HI, CELL, ROLL_COL, ROLL_KEY_ROW, ROLL_ROWS, ROLL_STEP, VIEW_X, VIEW_Y, CAM_X, PITCH, WHITE_X0, WHITE_Y, BLACK_Y,
   STAGE_ROWS, ROW_GAP, FALL_Y0, LAMP_X, LAMP_Y,

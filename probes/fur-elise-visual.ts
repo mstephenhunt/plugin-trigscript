@@ -36,7 +36,7 @@
 import { program, nextFrame, print, playWav, centerView, centerLocation, reserveLocation, createUnit, removeUnitAt, killUnitAt, giveUnits, setMemory, units, mixdown, tone, P3, P4, P5, P6, P7, P8, test, expect, type Clip } from "trigscript";
 import { music } from "trigscript/music";
 import { FRAME } from "./lib/note-timeline";
-import type { PlayedNote } from "./lib/fur-elise-score";
+import type { PlayedNote } from "./lib/fur-elise-probe-score";
 import { CAM_X, CAM_Y, CELL } from "./lib/fur-elise-layout";
 import {
   A_NOTES, STORM_NOTES, THEME_NOTES, A_LONG, STORM_LONG, THEME_LONG, BAR_AT, BAR_FRAME, CLICK_EVERY, CLICKS, OVERLORD,
