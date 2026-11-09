@@ -93,6 +93,18 @@ describe("the .samples file", () => {
     expect(text.length).toBeLessThan(rec[0].length * 4 * (4 / 3) * 0.6);
   });
 
+  it("names every clip made from an instrument by the instrument too: change one recording, every name changes", () => {
+    const one = (level: number) => writeSamples({ rate: RATE, samples: [{ name: "a", channels: ring(220, 0.5, 0.5) }, { name: "b", channels: ring(440, 0.5, level) }], zones: [
+      { sample: 0, key: 57, lo: 0, hi: 62, vlo: 1, vhi: 127 }, { sample: 1, key: 69, lo: 63, hi: 127, vlo: 1, vhi: 127 },
+    ] });
+    // Only recording b differs; the clip played is made from recording a.
+    const names = (text: string) => compileScript(ts, { "main.ts": `import inst from "./inst.samples";\nprogram(async () => { playWav(inst.zones[0].clip.gain(0.5), 0); });`, "inst.samples": text }, defaultScriptNames(), { lib: LIB, sounds: false }).sounds.map((x) => x.path);
+    const [a, b] = [names(one(0.5)), names(one(0.4))];
+    expect(a.length).toBe(1);
+    expect(a).not.toEqual(b);
+    expect(names(one(0.5))).toEqual(a);
+  });
+
   it("refuses a zone that names no recording, and says what it holds on the hover", () => {
     expect(() => writeSamples({ rate: RATE, samples: [], zones: [{ sample: 0, key: 60, lo: 0, hi: 127, vlo: 1, vhi: 127 }] })).toThrow(/names recording 0/);
     expect(describeSamples(instrument())).toMatch(/^A sampled instrument, Test: 6 recordings .* 6 zones at 22,050 Hz\. Ours \(CC0\)\.$/);
