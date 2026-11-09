@@ -6922,6 +6922,13 @@ frame on average, 0.79 ms at the most (frame 2542, drop 3 with its stabs and the
 0 ending the game, 0 ignored, 0 never seen. In Maps/TrigScript: `trigscript-fur-elise.scx` (the remix),
 `trigscript-fur-elise-cinematic.scx`, `trigscript-fur-elise-straight.scx`, the check sheet and 24 stills. Not played yet.
 
+**Played and published (2026-11-09).** The user played the remix map in Remastered ("looks great, we'll go with this
+map"). In the recording (StarCraft 2026.11.09 - 13.28.00.01.mp4, 152.6 s) the clip starts at 4.79 s and matches the
+map's Ogg at 1.000, 0 samples of drift at every 10 s. The video is https://www.youtube.com/watch?v=CFVdWwmngyw; the
+editor's TrigScript guide has the Showcase entry, with the map to download. Open: the sampled instruments,
+`music.perform` and the rest of S7's music library come to the editor with the next TrigScript release, and the
+library guide describes them then; the editor cannot import a `.samples` file yet (a whole piano is 125–137 MB).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
