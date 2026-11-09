@@ -1139,8 +1139,8 @@ function isqrt(n) {
   while ((x + 1n) * (x + 1n) <= n) x++;
   return x;
 }
-function fixedSqrt(v, whole = false) {
-  if (whole) return v >>> 0 >= 2 ** 30 ? 2147483647 : signedCell(isqrt(BigInt(v >>> 0) << 32n), false);
+function fixedSqrt(v, whole2 = false) {
+  if (whole2) return v >>> 0 >= 2 ** 30 ? 2147483647 : signedCell(isqrt(BigInt(v >>> 0) << 32n), false);
   if (v <= 0) return 0;
   return signedCell(isqrt(BigInt(v) << 16n), false);
 }
@@ -1170,14 +1170,14 @@ function fixedSin(x, scale2, table, cos = false) {
 }
 function fixedText(v) {
   const m = Math.abs(v);
-  let whole = Math.floor(m / 65536);
+  let whole2 = Math.floor(m / 65536);
   let places = Math.floor((m % 65536 * 1e4 + 32768) / 65536);
   if (places === 1e4) {
-    whole++;
+    whole2++;
     places = 0;
   }
-  const sign = v < 0 && (whole || places) ? "-" : "";
-  return sign + String(whole) + (places ? "." + String(places).padStart(4, "0").replace(/0+$/, "") : "");
+  const sign = v < 0 && (whole2 || places) ? "-" : "";
+  return sign + String(whole2) + (places ? "." + String(places).padStart(4, "0").replace(/0+$/, "") : "");
 }
 
 // compiler/ir.ts
@@ -2624,8 +2624,8 @@ var ProgramRun = class {
     return { s, room, taken: true };
   }
   /** Values that have been used: a block that was the value's own goes back to the heap. */
-  used(...values) {
-    for (const v of values) if (v.taken && v.room) this.sim.heap.give(v.room);
+  used(...values6) {
+    for (const v of values6) if (v.taken && v.room) this.sim.heap.give(v.room);
   }
   /** A value as something to keep: its own block as it is, a copy of a variable's. */
   owned(v, at) {
@@ -2862,17 +2862,17 @@ var ProgramRun = class {
     if (c2.fn && !fn) throw new Error(`The function ${c2.fn} is not one of the program's (line ${c2.at.line}).`);
     let kept2;
     if (fn) {
-      const values = [];
-      for (const p of c2.params) values.push(p.decl.kind === "unit" ? yield* this.unit(p.init) : p.decl.kind === "text" ? this.owned(yield* this.text(p.init), c2.at) : yield* this.init(p.init, p.decl.kind));
+      const values6 = [];
+      for (const p of c2.params) values6.push(p.decl.kind === "unit" ? yield* this.unit(p.init) : p.decl.kind === "text" ? this.owned(yield* this.text(p.init), c2.at) : yield* this.init(p.init, p.decl.kind));
       if (c2.saves) kept2 = this.keep(c2);
       c2.params.forEach((p, i) => {
         this.declare(p.decl);
-        if (p.decl.kind === "unit") this.unitVars.set(p.decl.id, values[i]);
+        if (p.decl.kind === "unit") this.unitVars.set(p.decl.id, values6[i]);
         else if (p.decl.kind === "text") {
           const old = this.textVars.get(p.decl.id);
           if (old?.room) this.sim.heap.give(old.room);
-          this.textVars.set(p.decl.id, values[i]);
-        } else this.store(p.decl.id, values[i]);
+          this.textVars.set(p.decl.id, values6[i]);
+        } else this.store(p.decl.id, values6[i]);
       });
     } else {
       for (const p of c2.params) {
@@ -3288,11 +3288,11 @@ var ProgramRun = class {
       case "start": {
         const pool = this.pools.find((p) => p.start === s);
         if (!pool) throw new Error(`The start of task ${s.task} is not one of the program's (line ${s.at.line}).`);
-        const values = [];
-        for (const p of s.call.params) values.push(p.decl.kind === "unit" ? yield* this.unit(p.init) : p.decl.kind === "text" ? this.owned(yield* this.text(p.init), s.at) : this.kept(yield* this.init(p.init, p.decl.kind), p.decl));
+        const values6 = [];
+        for (const p of s.call.params) values6.push(p.decl.kind === "unit" ? yield* this.unit(p.init) : p.decl.kind === "text" ? this.owned(yield* this.text(p.init), s.at) : this.kept(yield* this.init(p.init, p.decl.kind), p.decl));
         const i = pool.slots.findIndex((slot2) => !slot2.exec);
         if (i < 0) {
-          for (const v of values) if (v && typeof v === "object" && "room" in v && v.room) this.sim.heap.give(v.room);
+          for (const v of values6) if (v && typeof v === "object" && "room" in v && v.room) this.sim.heap.give(v.room);
           if (!pool.said) this.sim.faults.push({ cycle: this.sim.cycle, frame: this.sim.frame, program: this.index, at: s.at, message: `${s.call.name ?? "The task"} did not start: all ${s.max} of this start's tasks are running. start(\u2026, { max: \u2026 }) lets more run at once.` });
           pool.said = true;
           if (s.handle) this.store(s.handle, 0);
@@ -3302,12 +3302,12 @@ var ProgramRun = class {
         slot.gen = slot.gen >= 65535 ? 1 : slot.gen + 1;
         s.call.params.forEach((p, k) => {
           this.declare(p.decl);
-          if (p.decl.kind === "unit") slot.units.set(p.decl.id, values[k]);
+          if (p.decl.kind === "unit") slot.units.set(p.decl.id, values6[k]);
           else if (p.decl.kind === "text") {
             const old = slot.texts.get(p.decl.id);
             if (old?.room) this.sim.heap.give(old.room);
-            slot.texts.set(p.decl.id, values[k]);
-          } else slot.vars.set(p.decl.id, values[k]);
+            slot.texts.set(p.decl.id, values6[k]);
+          } else slot.vars.set(p.decl.id, values6[k]);
           this.vars.delete(p.decl.id);
           this.unitVars.delete(p.decl.id);
           this.textVars.delete(p.decl.id);
@@ -3717,9 +3717,9 @@ var ProgramSimulation = class {
   /** A player sends a line of chat: the next frame finds it, as the first of the programs' patterns it matches — or not at all. */
   type(line, player = this.player) {
     for (const c2 of this.chats) {
-      const values = matchChat(c2, line, this.unitByName);
-      if (values) {
-        this.queued.lines.set(player, { pattern: c2.pattern, values });
+      const values6 = matchChat(c2, line, this.unitByName);
+      if (values6) {
+        this.queued.lines.set(player, { pattern: c2.pattern, values: values6 });
         break;
       }
     }
@@ -5003,8 +5003,326 @@ function coverValue(picture, shapesArg, video) {
 
 // compiler/rangeCoder.ts
 var PROB_BITS = 11;
+var MOVE_BITS = 5;
 var TOP = 1 << 24;
 var PROB_HALF = 1 << PROB_BITS - 1;
+var RangeDecoder = class {
+  range = 4294967295;
+  code = 0;
+  at = 0;
+  /** Read past the end: the file was cut short. */
+  overrun = false;
+  bytes;
+  constructor(bytes2) {
+    this.bytes = bytes2;
+    for (let i = 0; i < 5; i++) this.code = (this.code * 256 + this.next()) % 4294967296;
+  }
+  next() {
+    if (this.at < this.bytes.length) return this.bytes[this.at++];
+    this.overrun = this.at++ > this.bytes.length + 4;
+    return 0;
+  }
+  bit(odds, k) {
+    const p = odds[k], bound = (this.range >>> PROB_BITS) * p;
+    let bit;
+    if (this.code < bound) {
+      this.range = bound;
+      odds[k] = p + ((1 << PROB_BITS) - p >> MOVE_BITS);
+      bit = 0;
+    } else {
+      this.code -= bound;
+      this.range -= bound;
+      odds[k] = p - (p >> MOVE_BITS);
+      bit = 1;
+    }
+    while (this.range < TOP) {
+      this.range = this.range * 256 >>> 0;
+      this.code = (this.code * 256 + this.next()) % 4294967296;
+    }
+    return bit;
+  }
+};
+function fromBase64(text) {
+  const s = atob(text);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+// compiler/image.ts
+var IMAGE_EXTENSION = ".image";
+var MAX_IMAGE_SIDE = 1024;
+var VERSION = 1;
+var luma = (r, g, b) => Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+function readImage(text) {
+  let h;
+  try {
+    h = JSON.parse(text);
+  } catch {
+    throw new Error("This is not an image TrigScript imported: an .image file is one line of JSON.");
+  }
+  if (h?.trigscript !== "image" || typeof h.data !== "string") throw new Error("This is not an image TrigScript imported.");
+  if (h.version !== VERSION) throw new Error(`This image was written by a newer TrigScript (format ${h.version}); update the plugin to read it.`);
+  const width = Number(h.width), height = Number(h.height), color = h.color === true, alpha = h.alpha === true;
+  checkSize(width, height);
+  const n = width * height;
+  const coder = new RangeDecoder(fromBase64(h.data));
+  const odds = newOdds();
+  const got = planes(new Uint8Array(n * 4), n, color, alpha).map((plane, k) => {
+    codePlane(plane, width, height, (ctx) => {
+      let node = 1;
+      for (let bit = 0; bit < 8; bit++) node = node * 2 + coder.bit(odds, oddsAt(k, ctx, node));
+      return node - 256;
+    });
+    if (coder.overrun) throw new Error("The image's pixels end too soon: the file is cut short.");
+    return plane;
+  });
+  const rgba = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    if (color) {
+      const g = got[0][i];
+      rgba[i * 4] = got[1][i] + g - 128 & 255;
+      rgba[i * 4 + 1] = g;
+      rgba[i * 4 + 2] = got[2][i] + g - 128 & 255;
+    } else rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = got[0][i];
+    rgba[i * 4 + 3] = alpha ? got[color ? 3 : 1][i] : 255;
+  }
+  return Object.freeze({ width, height, color, alpha, ...typeof h.source === "string" ? { source: h.source } : {}, rgba });
+}
+function checkSize(width, height) {
+  if (!(Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 && width <= MAX_IMAGE_SIDE && height <= MAX_IMAGE_SIDE)) {
+    throw new Error(`An image is 1 to ${MAX_IMAGE_SIDE} pixels each way, not ${width} \xD7 ${height}.`);
+  }
+}
+var BUSY = 8;
+var newOdds = () => new Uint16Array(4 * BUSY * 256).fill(PROB_HALF);
+var oddsAt = (plane, busy, node) => (plane * BUSY + busy) * 256 + node;
+function planes(rgba, n, color, alpha) {
+  const plane = (f) => Uint8Array.from({ length: n }, (_, i) => f(i * 4));
+  const out = color ? [plane((i) => rgba[i + 1]), plane((i) => rgba[i] - rgba[i + 1] + 128 & 255), plane((i) => rgba[i + 2] - rgba[i + 1] + 128 & 255)] : [plane((i) => rgba[i])];
+  if (alpha) out.push(plane((i) => rgba[i + 3]));
+  return out;
+}
+function codePlane(plane, width, height, code) {
+  for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i++) {
+    const a2 = x > 0 ? plane[i - 1] : y > 0 ? plane[i - width] : 0;
+    const b = y > 0 ? plane[i - width] : a2;
+    const c2 = x > 0 && y > 0 ? plane[i - width - 1] : b;
+    const guess = c2 >= Math.max(a2, b) ? Math.min(a2, b) : c2 <= Math.min(a2, b) ? Math.max(a2, b) : a2 + b - c2;
+    const d = Math.abs(a2 - c2) + Math.abs(b - c2);
+    const busy = d === 0 ? 0 : Math.min(BUSY - 1, 1 + Math.floor(Math.log2(d)));
+    const e = plane[i] - guess & 255, s = e < 128 ? e : e - 256;
+    const got = code(busy, s >= 0 ? 2 * s : -2 * s - 1);
+    plane[i] = guess + (got & 1 ? -(got + 1) / 2 : got / 2) & 255;
+  }
+}
+var OPAQUE = 128;
+var whole = (v, what) => {
+  if (typeof v !== "number" || !Number.isInteger(v)) throw new Error(`${what} is a whole number, not ${String(v)}.`);
+  return v;
+};
+var inkOf2 = (options) => {
+  const ink = options?.ink ?? "light";
+  if (ink !== "light" && ink !== "dark") throw new Error(`ink is "light" or "dark", not ${JSON.stringify(ink)}.`);
+  return ink === "dark";
+};
+function makeImage(d) {
+  const { width: w, height: h, rgba } = d;
+  const n = w * h;
+  const at = (x, y) => {
+    whole(x, "x");
+    whole(y, "y");
+    if (x < 0 || y < 0 || x >= w || y >= h) throw new RangeError(`The image is ${w} \xD7 ${h}; there is no pixel (${String(x)}, ${String(y)}).`);
+    return (y * w + x) * 4;
+  };
+  const greyAt = (i) => d.color ? luma(rgba[i], rgba[i + 1], rgba[i + 2]) : rgba[i];
+  const remap = (nw, nh, from) => {
+    const out = new Uint8Array(nw * nh * 4);
+    for (let y = 0, o = 0; y < nh; y++) for (let x = 0; x < nw; x++, o += 4) out.set(rgba.subarray(from(x, y), from(x, y) + 4), o);
+    return makeImage({ ...d, width: nw, height: nh, rgba: out });
+  };
+  const rows = (char) => {
+    const out = [];
+    for (let y = 0; y < h; y++) {
+      let row = "";
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        row += rgba[i + 3] < OPAQUE ? "." : char(greyAt(i), y * w + x);
+      }
+      out.push(row);
+    }
+    return Object.freeze(out);
+  };
+  const image = {
+    __trigscript: "image",
+    width: w,
+    height: h,
+    color: d.color,
+    transparent: d.alpha,
+    grey: (x, y) => greyAt(at(x, y)),
+    rgb: (x, y) => {
+      const i = at(x, y);
+      return Object.freeze({ r: rgba[i], g: rgba[i + 1], b: rgba[i + 2] });
+    },
+    alpha: (x, y) => rgba[at(x, y) + 3],
+    crop(x, y, cw, ch) {
+      for (const [v, what] of [[x, "x"], [y, "y"], [cw, "width"], [ch, "height"]]) whole(v, what);
+      if (x < 0 || y < 0 || cw < 1 || ch < 1 || x + cw > w || y + ch > h) throw new RangeError(`crop(${x}, ${y}, ${cw}, ${ch}) is not inside the image, which is ${w} \xD7 ${h}.`);
+      return remap(cw, ch, (px, py) => ((y + py) * w + x + px) * 4);
+    },
+    scale(sw, sh) {
+      whole(sw, "width");
+      const th = sh === void 0 ? Math.max(1, Math.round(sw * h / w)) : whole(sh, "height");
+      checkSize(sw, th);
+      return makeImage({ ...d, width: sw, height: th, rgba: resample(rgba, w, h, sw, th) });
+    },
+    flip(axis) {
+      if (axis === "horizontal") return remap(w, h, (x, y) => (y * w + (w - 1 - x)) * 4);
+      if (axis === "vertical") return remap(w, h, (x, y) => ((h - 1 - y) * w + x) * 4);
+      throw new Error(`flip() takes "horizontal" or "vertical", not ${JSON.stringify(axis)}.`);
+    },
+    rotate(turn) {
+      if (turn === 90) return remap(h, w, (x, y) => ((h - 1 - x) * w + y) * 4);
+      if (turn === 180) return remap(w, h, (x, y) => ((h - 1 - y) * w + (w - 1 - x)) * 4);
+      if (turn === 270) return remap(h, w, (x, y) => (x * w + (w - 1 - y)) * 4);
+      throw new Error(`rotate() turns by 90, 180 or 270 degrees clockwise, not ${String(turn)}.`);
+    },
+    invert() {
+      const out = Uint8Array.from(rgba);
+      for (let i = 0; i < n * 4; i += 4) {
+        out[i] = 255 - out[i];
+        out[i + 1] = 255 - out[i + 1];
+        out[i + 2] = 255 - out[i + 2];
+      }
+      return makeImage({ ...d, rgba: out });
+    },
+    threshold(level = 128, options) {
+      if (typeof level !== "number" || !(level >= 0 && level <= 256)) throw new RangeError(`threshold() takes a grey from 0 to 256, not ${String(level)}.`);
+      const dark = inkOf2(options);
+      return rows((g) => g >= level !== dark ? "#" : ".");
+    },
+    tones(count) {
+      whole(count, "tones()' count");
+      if (count < 2 || count > 10) throw new RangeError(`tones() makes 2 to 10 tones, a digit each, not ${count}.`);
+      return rows((g) => String(Math.min(count - 1, Math.floor(g * count / 256))));
+    },
+    halftone(cw, ch, options) {
+      whole(cw, "halftone()'s cell width");
+      const cellH = ch === void 0 ? cw + 1 : whole(ch, "halftone()'s cell height");
+      if (cw < 3 || cellH < 4 || cw > 32 || cellH > 32) throw new RangeError(`halftone() takes cells 3 to 32 tiles across and 4 to 32 down (the smallest brush is 3 \xD7 4), not ${cw} \xD7 ${cellH}.`);
+      return halftone(w, h, (i) => rgba[i * 4 + 3] < OPAQUE ? -1 : greyAt(i * 4), cw, cellH, options?.diffuse !== false);
+    }
+  };
+  return Object.freeze(image);
+}
+function halftone(w, h, grey, cw, ch, diffuse) {
+  const lit = new Uint8Array(w * h), brushes = [];
+  const starts = (size, cell, least) => {
+    const at = [];
+    for (let p = 0; p < size; p += cell) at.push(p);
+    if (at.length > 1 && size - at[at.length - 1] < least) at.pop();
+    return [...at, size];
+  };
+  const xs = starts(w, cw, 3), ys = starts(h, ch, 4);
+  const cols = xs.length - 1, rowsOfCells = ys.length - 1;
+  const err = new Float32Array(cols * rowsOfCells);
+  for (let cy = 0; cy < rowsOfCells; cy++) for (let cx = 0; cx < cols; cx++) {
+    const x0 = xs[cx], y0 = ys[cy], x1 = xs[cx + 1], y1 = ys[cy + 1];
+    const area = (x1 - x0) * (y1 - y0);
+    let sum = 0, seen = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const g = grey(y * w + x);
+      if (g >= 0) {
+        sum += g;
+        seen++;
+      }
+    }
+    if (seen * 2 < area) continue;
+    const place = (shape) => {
+      const fit = (at, size, room) => Math.max(0, Math.min(room - size, at));
+      const sx = fit(x0 + (x1 - x0 - shape[0].length >> 1), shape[0].length, w), sy = fit(y0 + (y1 - y0 - shape.length >> 1), shape.length, h), tiles = [];
+      let centre = { x: 0, y: 0 }, inside2 = true;
+      shape.forEach((row, dy) => {
+        for (let dx = 0; dx < row.length; dx++) {
+          const x = sx + dx, y = sy + dy;
+          if (row[dx] === "@") centre = { x, y };
+          if (row[dx] === ".") continue;
+          if (x < 0 || y < 0 || x >= w || y >= h) inside2 = false;
+          else tiles.push(y * w + x);
+        }
+      });
+      return inside2 ? { tiles, centre } : null;
+    };
+    const share = (tiles) => tiles.reduce((n, i) => n + (lit[i] ? 0 : 1), 0) / area;
+    const want = sum / seen / 255 + err[cy * cols + cx];
+    let best = null, bestShare = 0;
+    for (const [k, shape] of FOG_SHAPES.entries()) {
+      if (shape[0].length > x1 - x0 + 2 || shape.length > y1 - y0 + 2) break;
+      const at = place(shape);
+      if (!at) continue;
+      const s = share(at.tiles);
+      if (Math.abs(s - want) < Math.abs(bestShare - want)) {
+        best = { ...at, shape: k };
+        bestShare = s;
+      }
+    }
+    if (best) {
+      for (const i of best.tiles) lit[i] = 1;
+      brushes.push(Object.freeze({ ...best.centre, shape: best.shape }));
+    }
+    const miss = diffuse ? want - bestShare : 0;
+    const give = (dx, dy, part) => {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && nx < cols && ny < rowsOfCells) err[ny * cols + nx] += miss * part / 16;
+    };
+    give(1, 0, 7);
+    give(-1, 1, 3);
+    give(0, 1, 5);
+    give(1, 1, 1);
+  }
+  const out = [];
+  for (let y = 0; y < h; y++) {
+    let row = "";
+    for (let x = 0; x < w; x++) row += lit[y * w + x] ? "#" : ".";
+    out.push(row);
+  }
+  return Object.freeze(Object.assign(out, { brushes: Object.freeze(brushes) }));
+}
+function resample(rgba, w, h, tw, th) {
+  const spans = (from, to) => Array.from({ length: to }, (_, t) => {
+    const lo = t * from / to, hi = (t + 1) * from / to, parts = [];
+    for (let s = Math.floor(lo); s < Math.min(from, Math.ceil(hi)); s++) parts.push([s, Math.min(hi, s + 1) - Math.max(lo, s)]);
+    return parts;
+  });
+  const xs = spans(w, tw), ys = spans(h, th);
+  const out = new Uint8Array(tw * th * 4);
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+    let r = 0, g = 0, b = 0, a2 = 0, area = 0;
+    for (const [sy, wy] of ys[y]) for (const [sx, wx] of xs[x]) {
+      const i = (sy * w + sx) * 4, part = wx * wy, opaque = rgba[i + 3] / 255 * part;
+      r += rgba[i] * opaque;
+      g += rgba[i + 1] * opaque;
+      b += rgba[i + 2] * opaque;
+      a2 += rgba[i + 3] * part;
+      area += part;
+    }
+    const o = (y * tw + x) * 4, weight = a2 / 255 || 1;
+    out[o] = Math.round(r / weight);
+    out[o + 1] = Math.round(g / weight);
+    out[o + 2] = Math.round(b / weight);
+    out[o + 3] = Math.round(a2 / area);
+  }
+  return out;
+}
+var values = /* @__PURE__ */ new Map();
+function imageValue(text) {
+  const hit = values.get(text);
+  if (hit) return hit;
+  const image = makeImage(readImage(text));
+  if (values.size >= 8) values.delete(values.keys().next().value);
+  values.set(text, image);
+  return image;
+}
 
 // compiler/dsp.ts
 function curve(v, rate, n, log = false) {
@@ -5275,10 +5593,122 @@ function pluckVoice(hz, rate, n, brightness, decay) {
   }
   return out;
 }
+function biquad(x, [b0, b1, b2, a1, a2]) {
+  const out = new Float32Array(x.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < x.length; i++) {
+    const y = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = x[i];
+    y2 = y1;
+    y1 = y;
+    out[i] = y;
+  }
+  return out;
+}
+function loudness(chans, rate) {
+  if (chans.length === 1) chans = [chans[0], chans[0]];
+  let K = Math.tan(Math.PI * 1681.974450955533 / rate);
+  const Vh = 10 ** (3.999843853973347 / 20), Vb = Vh ** 0.4996667741545416, Q1 = 0.7071752369554196;
+  let a0 = 1 + K / Q1 + K * K;
+  const shelf = [(Vh + Vb * K / Q1 + K * K) / a0, 2 * (K * K - Vh) / a0, (Vh - Vb * K / Q1 + K * K) / a0, 2 * (K * K - 1) / a0, (1 - K / Q1 + K * K) / a0];
+  K = Math.tan(Math.PI * 38.13547087602444 / rate);
+  const Q2 = 0.5003270373238773;
+  a0 = 1 + K / Q2 + K * K;
+  const high = [1, -2, 1, 2 * (K * K - 1) / a0, (1 - K / Q2 + K * K) / a0];
+  const weighted = chans.map((c2) => biquad(biquad(c2, shelf), high));
+  const n = chans[0].length, block = Math.round(0.4 * rate), step = Math.round(0.1 * rate);
+  if (n < block) return -Infinity;
+  const powers = [];
+  const prefix = weighted.map((w) => {
+    const p = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) p[i + 1] = p[i] + w[i] * w[i];
+    return p;
+  });
+  for (let from = 0; from + block <= n; from += step) {
+    let z = 0;
+    for (const p of prefix) z += (p[from + block] - p[from]) / block;
+    powers.push(z);
+  }
+  const lufs = (z) => -0.691 + 10 * Math.log10(z);
+  const above = powers.filter((z) => z > 0 && lufs(z) > -70);
+  if (above.length === 0) return -Infinity;
+  const gate = lufs(above.reduce((a2, b) => a2 + b, 0) / above.length) - 10;
+  const kept2 = above.filter((z) => lufs(z) > gate);
+  return lufs(kept2.reduce((a2, b) => a2 + b, 0) / kept2.length);
+}
+function sympathetic(chans, rate, pedal, amount, decay, frames) {
+  const n = chans[0].length, L = new Float32Array(frames), R = new Float32Array(frames);
+  const up = new Float32Array(frames), ease = Math.max(1, Math.round(0.02 * rate));
+  for (const [down, lift] of pedal) {
+    const a2 = Math.max(0, Math.round(down * rate)), b = Math.min(frames, Math.round(lift * rate));
+    for (let i = a2; i < b; i++) up[i] = 1;
+  }
+  const open = new Float32Array(frames);
+  let g = 0;
+  for (let i = 0; i < frames; i++) {
+    g += (up[i] - g) / ease;
+    open[i] = g;
+  }
+  const x = new Float32Array(frames);
+  for (let i = 0; i < Math.min(n, frames); i++) {
+    let s = 0;
+    for (const c2 of chans) s += c2[i];
+    x[i] = s / chans.length * open[i];
+  }
+  const damped = 0.1;
+  for (let m = 21; m <= 88; m++) {
+    const hz = 440 * 2 ** ((m - 69) / 12), delay = rate / hz;
+    const t60 = decay * (1.5 - (m - 21) / 67);
+    const gDown = 10 ** (-3 * delay / (rate * t60)), gUp = 10 ** (-3 * delay / (rate * damped));
+    const size = Math.ceil(delay) + 2, buf = new Float32Array(size);
+    const d0 = Math.floor(delay), frac = delay - d0;
+    const pan = (m - 21) / 67, gl = Math.cos(pan * Math.PI / 2), gr = Math.sin(pan * Math.PI / 2);
+    let w = 0, lp = 0, energy = 0;
+    for (let i = 0; i < frames; i++) {
+      const r1 = (w - d0 + size) % size, r2 = (r1 - 1 + size) % size;
+      const back = buf[r1] * (1 - frac) + buf[r2] * frac;
+      lp = 0.75 * back + 0.25 * lp;
+      const gk = gUp + (gDown - gUp) * open[i];
+      const y = x[i] + gk * lp;
+      buf[w] = y;
+      w = (w + 1) % size;
+      const out = (y - x[i]) * (1 - gDown) * amount;
+      L[i] += gl * out;
+      R[i] += gr * out;
+      energy = energy * 0.999 + Math.abs(y);
+      if (energy < 1e-9 && open[i] === 0 && i > n) break;
+    }
+  }
+  return [L, R];
+}
+function duck(chans, key, rate, depth, threshold, attack, release) {
+  const n = chans[0].length, kn = key[0].length, floor = 10 ** (-depth / 20), thr = 10 ** (threshold / 20);
+  const up = 1 - Math.exp(-1 / Math.max(1, attack * rate)), down = 1 - Math.exp(-1 / Math.max(1, release * rate));
+  const gain = new Float32Array(n);
+  let env = 0;
+  for (let i = 0; i < n; i++) {
+    let x = 0;
+    if (i < kn) for (const k of key) {
+      const a2 = k[i] < 0 ? -k[i] : k[i];
+      if (a2 > x) x = a2;
+    }
+    env += (x - env) * (x > env ? up : down);
+    const amount = Math.min(1, env / thr);
+    gain[i] = 1 - (1 - floor) * amount;
+  }
+  return chans.map((c2) => {
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = c2[i] * gain[i];
+    return out;
+  });
+}
 
 // compiler/sound.ts
+var SOUND_EXTENSION = ".sound";
 var MAX_SECONDS = 600;
 var DEFAULT_RATE = 22050;
+var VERSION2 = 1;
 var INDEX_STEP = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8];
 var STEPS = [
   7,
@@ -5512,6 +5942,22 @@ function periodicity(samples, rate) {
 var ADPCM_FIDELITY = 18;
 var TONAL = 0.5;
 var adpcmWillDo = (samples, rate, adpcm) => adpcmFidelity(samples, rate, adpcm) >= ADPCM_FIDELITY || periodicity(samples, rate) < TONAL;
+function readSound(text) {
+  let h;
+  try {
+    h = JSON.parse(text);
+  } catch {
+    throw new Error("This is not a sound TrigScript imported: a .sound file is one line of JSON.");
+  }
+  if (h?.trigscript !== "sound" || typeof h.data !== "string") throw new Error("This is not a sound TrigScript imported.");
+  if (h.version !== VERSION2) throw new Error(`This sound was written by a newer TrigScript (format ${h.version}); update the plugin to read it.`);
+  const rate = Number(h.rate), frames = Number(h.frames);
+  checkRate(rate);
+  if (!(Number.isInteger(frames) && frames >= 0 && frames <= MAX_SECONDS * rate)) throw new Error("The sound's length is not a whole number of samples.");
+  const adpcm = fromBase64(h.data), align = blockAlign(rate);
+  if (adpcm.length < Math.ceil(frames / samplesPerBlock(align)) * align) throw new Error("The sound's samples end too soon: the file is cut short.");
+  return Object.freeze({ rate, frames, ...typeof h.source === "string" ? { source: h.source } : {}, adpcm, samples: decodeAdpcm(adpcm, rate, frames) });
+}
 function checkRate(rate) {
   if (!(Number.isInteger(rate) && rate >= 8e3 && rate <= 48e3)) throw new Error(`A sound's rate is 8 000 to 48 000 samples a second, not ${rate}.`);
 }
@@ -5582,7 +6028,7 @@ var KERNEL = (() => {
   return t;
 })();
 var resampled = (n, from, to) => from === to ? n : Math.max(1, Math.round(n * to / from));
-function resample(samples, from, to) {
+function resample2(samples, from, to) {
   if (from === to) return samples;
   const n = resampled(samples.length, from, to), out = new Float32Array(n), r = from / to;
   const c2 = Math.min(1, to / from), reach = HALF / c2, last = samples.length - 1;
@@ -5599,7 +6045,7 @@ function resample(samples, from, to) {
 }
 var framesAt = (c2, rate) => resampled(inside.get(c2).frames, c2.rate, rate);
 var channelsAt = (c2, rate, channels) => {
-  const own = samplesOf(c2).map((s) => resample(s, c2.rate, rate));
+  const own = samplesOf(c2).map((s) => resample2(s, c2.rate, rate));
   return channels === 2 && own.length === 1 ? [own[0], own[0]] : own;
 };
 var each = (s, f) => {
@@ -5613,6 +6059,16 @@ var scale = (s, g) => {
   else for (let i = 0; i < s.length; i++) out[i] = s[i] * g[i];
   return out;
 };
+function makeClip(samples, rate, adpcm, wav) {
+  const chans = samples instanceof Float32Array ? [samples] : samples;
+  if (chans.length !== 1 && chans.length !== 2) throw new Error("A clip has one channel or two.");
+  const frames = chans[0].length;
+  if (chans.some((s) => s.length !== frames)) throw new Error("A clip's channels are the same length.");
+  return lazyClip(rate, frames, chans.length, () => chans, { channels: chans, ...adpcm ? { adpcm } : {}, ...wav ? { wav } : {} });
+}
+function storedClip(key, rate, frames, channels, compute) {
+  return made(key, () => lazyClip(rate, frames, channels, compute));
+}
 function lazyClip(rate, frames, channels, compute, extra = {}) {
   if (frames / rate > MAX_SECONDS) throw new Error(`A clip is at most ${MAX_SECONDS / 60} minutes long, not ${(frames / rate / 60).toFixed(1)}.`);
   const seconds = frames / rate, wav = extra.wav === true;
@@ -5636,6 +6092,11 @@ function lazyClip(rate, frames, channels, compute, extra = {}) {
       }
       return own.peak;
     },
+    get lufs() {
+      const own = inside.get(clip);
+      if (own.lufs === void 0) own.lufs = loudness(samplesOf(clip), rate);
+      return own.lufs;
+    },
     trim(from, to = seconds) {
       num(from, "trim()'s start");
       num(to, "trim()'s end");
@@ -5658,7 +6119,7 @@ function lazyClip(rate, frames, channels, compute, extra = {}) {
     },
     pitch(semitones) {
       const ratio = 2 ** (num(semitones, "pitch()") / 12);
-      return derive("pitch", [semitones], resampled(frames, rate * ratio, rate), channels, (cs) => cs.map((s) => resample(s, rate * ratio, rate)));
+      return derive("pitch", [semitones], resampled(frames, rate * ratio, rate), channels, (cs) => cs.map((s) => resample2(s, rate * ratio, rate)));
     },
     then(...clips) {
       for (const c2 of clips) if (!isClip(c2)) throw new Error("then() joins clips.");
@@ -5775,7 +6236,7 @@ function lazyClip(rate, frames, channels, compute, extra = {}) {
     drive(dB) {
       if (!(num(dB, "drive()") >= 0 && dB <= 48)) throw new RangeError(`drive() is 0 to 48 dB of push, not ${dB}.`);
       if (dB === 0) return clip;
-      return same2("drive", [dB], (cs) => saturate(cs, dB, (s) => resample(s, rate, rate * 2), (s) => resample(s, rate * 2, rate)));
+      return same2("drive", [dB], (cs) => saturate(cs, dB, (s) => resample2(s, rate, rate * 2), (s) => resample2(s, rate * 2, rate)));
     },
     delay(seconds2, options = {}) {
       const feedback = options.feedback ?? 0.35, mix = options.mix ?? 0.35, toneHz = options.tone ?? 5e3, pingPong = options.pingPong === true;
@@ -5807,6 +6268,40 @@ function lazyClip(rate, frames, channels, compute, extra = {}) {
       for (const [k, v] of [["attack", o.attack], ["release", o.release], ["knee", o.knee]]) if (!(num(v, `compress()'s ${k}`) >= 0)) throw new RangeError(`compress()'s ${k} is 0 or more, not ${v}.`);
       if (!(num(o.makeup, "compress()'s makeup") >= -24 && o.makeup <= 24)) throw new RangeError(`compress()'s makeup is \u221224 to 24 dB, not ${o.makeup}.`);
       return same2("compress", o, (cs) => compressor(cs, rate, o));
+    },
+    loudness(target) {
+      if (!(num(target, "loudness()") >= -70 && target <= 0)) throw new RangeError(`loudness() is LUFS, \u221270 to 0 (\u221216 for music heard on its own, \u221223 for broadcast), not ${target}.`);
+      return same2("loudness", [target], (cs) => {
+        const now = clip.lufs;
+        return Number.isFinite(now) ? cs.map((s) => scale(s, 10 ** ((target - now) / 20))) : cs;
+      });
+    },
+    duck(key, options = {}) {
+      if (!isClip(key)) throw new Error("duck() takes the clip it ducks under: pads.duck(lead).");
+      const o = { depth: options.depth ?? 6, threshold: options.threshold ?? -30, attack: options.attack ?? 0.01, release: options.release ?? 0.15 };
+      if (!(num(o.depth, "duck()'s depth") >= 0 && o.depth <= 40)) throw new RangeError(`duck()'s depth is 0 to 40 dB, not ${o.depth}.`);
+      if (!(num(o.threshold, "duck()'s threshold") <= 0 && o.threshold >= -80)) throw new RangeError(`duck()'s threshold is \u221280 to 0 dB, not ${o.threshold}.`);
+      if (!(num(o.attack, "duck()'s attack") >= 0) || !(num(o.release, "duck()'s release") >= 0)) throw new RangeError("duck()'s attack and release are seconds, 0 or more.");
+      return derive("duck", [key, o], frames, channels, (cs) => duck(cs, channelsAt(key, rate, key.channels), rate, o.depth, o.threshold, o.attack, o.release));
+    },
+    resonance(options) {
+      const pedal = options?.pedal, amount = options?.amount ?? 0.25, decay = options?.decay ?? 3;
+      if (!Array.isArray(pedal)) throw new Error("resonance() takes the pedal: { pedal: [[down, up], \u2026] } in seconds.");
+      const ps = pedal.map((p, k) => {
+        if (!Array.isArray(p) || p.length !== 2 || !Number.isFinite(num(p[0], "a pedal's down")) || !(num(p[1], "a pedal's up") >= p[0])) throw new Error(`resonance()'s pedal ${k + 1} is [down, up], seconds, up after down.`);
+        return [p[0], p[1]];
+      });
+      if (!(num(amount, "resonance()'s amount") >= 0 && amount <= 2)) throw new RangeError(`resonance()'s amount is 0 to 2, not ${amount}.`);
+      if (!(num(decay, "resonance()'s decay") > 0 && decay <= 20)) throw new RangeError(`resonance()'s decay is seconds, more than 0, at most 20, not ${decay}.`);
+      const last = ps.reduce((m, p) => Math.max(m, p[1]), 0), tail = last >= seconds - 1e-9 ? Math.round(decay * 1.5 * rate) : 0;
+      return derive("resonance", [ps, amount, decay], frames + tail, 2, (cs) => {
+        const ring = sympathetic(cs, rate, ps, amount, decay, frames + tail);
+        const dry = cs.length === 1 ? [cs[0], cs[0]] : cs;
+        return ring.map((r, side) => {
+          for (let i = 0; i < frames; i++) r[i] += dry[side][i];
+          return r;
+        });
+      });
     }
   };
   inside.set(clip, { frames, compute, ...extra });
@@ -5920,9 +6415,15 @@ function together(parts, options) {
     if (!isClip(o?.clip) || !Array.isArray(o.at)) throw new Error(`together()'s over ${k + 1} is { clip, at: [seconds, \u2026] }.`);
     return { clip: o.clip, at: o.at.map((t) => num(t, "an over's time")) };
   });
-  const whole = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at])]);
+  const lufs = options?.lufs;
+  if (lufs !== void 0 && !(num(lufs, "together()'s lufs") >= -70 && lufs <= 0)) throw new RangeError(`together()'s lufs is \u221270 to 0, not ${lufs}.`);
+  const whole2 = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at]), ...lufs === void 0 ? [] : [lufs]]);
   let gain;
   const turn = () => {
+    if (gain === void 0 && lufs !== void 0) {
+      const now = mixdown(list).lufs;
+      gain = Number.isFinite(now) ? 10 ** ((lufs - now) / 20) : 1;
+    }
     if (gain === void 0) {
       const sum = samplesOf(mixdown(list));
       let top = 0;
@@ -5956,7 +6457,7 @@ function together(parts, options) {
     let c2 = back.get(clip);
     if (!c2) {
       const own = inside.get(clip);
-      c2 = made(recipe("together part", [whole, clip]), () => lazyClip(clip.rate, own.frames, clip.channels, () => {
+      c2 = made(recipe("together part", [whole2, clip]), () => lazyClip(clip.rate, own.frames, clip.channels, () => {
         const g = turn();
         return samplesOf(clip).map((side) => {
           const out = new Float32Array(side.length);
@@ -5991,6 +6492,16 @@ function clipFile(c2, contents = true) {
     bytes2 = own.adpcm || adpcmWillDo(channels[0], c2.rate, coded) ? adpcmWav(coded, c2.rate, channels[0].length) : pcmWav(channels, c2.rate);
   }
   return { path, bytes: bytes2 };
+}
+var values2 = /* @__PURE__ */ new Map();
+function clipValue(text) {
+  const hit = values2.get(text);
+  if (hit) return hit;
+  const d = readSound(text);
+  const clip = makeClip(d.samples, d.rate, d.adpcm);
+  if (values2.size >= 16) values2.delete(values2.keys().next().value);
+  values2.set(text, clip);
+  return clip;
 }
 var NOTE = /^([A-Ga-g])([#b]?)(-?\d)$/;
 var SEMITONES = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -6129,8 +6640,275 @@ function silence(seconds, options) {
   return source("silence", [n, rate], rate, n, 1, () => [new Float32Array(n)]);
 }
 
+// compiler/notes.ts
+var NOTES_EXTENSION = ".notes";
+var VERSION3 = 1;
+function readNotes(text) {
+  let h;
+  try {
+    h = JSON.parse(text);
+  } catch {
+    throw new Error("These are not notes TrigScript imported: a .notes file is one line of JSON.");
+  }
+  if (h?.trigscript !== "notes") throw new Error("These are not notes TrigScript imported.");
+  if (h.version !== VERSION3) throw new Error(`These notes are of version ${String(h.version)}; this TrigScript reads version ${VERSION3}.`);
+  const bpm = Number(h.bpm), beats = Number(h.beats);
+  if (!(bpm > 0) || !(beats > 0) || !Array.isArray(h.tracks)) throw new Error("These notes are damaged: no tempo, no bar or no tracks.");
+  const tracks = h.tracks.map((t, k) => {
+    const ns = t?.notes;
+    if (!Array.isArray(ns) || ns.length % 4 !== 0 || ns.some((x) => typeof x !== "number" || !Number.isFinite(x))) throw new Error(`These notes are damaged: track ${k + 1}'s notes are not four numbers each.`);
+    const notes = [];
+    for (let i = 0; i < ns.length; i += 4) notes.push({ at: ns[i] / 960, beats: ns[i + 1] / 960, pitch: ns[i + 2], velocity: ns[i + 3] });
+    return { name: String(t.name ?? `Track ${k + 1}`), channel: Number(t.channel ?? 1), program: Number(t.program ?? 1), notes };
+  });
+  return { bpm, beats, tempoChanges: Number(h.tempoChanges ?? 0), tracks, ...typeof h.source === "string" ? { source: h.source } : {} };
+}
+var NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+var noteName = (n) => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+var values3 = /* @__PURE__ */ new Map();
+function notesValue(text) {
+  const kept2 = values3.get(text);
+  if (kept2) return kept2;
+  const data = readNotes(text);
+  const value = Object.freeze({
+    bpm: data.bpm,
+    beats: data.beats,
+    tempoChanges: data.tempoChanges,
+    ...data.source ? { source: data.source } : {},
+    tracks: Object.freeze(data.tracks.map((t) => Object.freeze({
+      name: t.name,
+      channel: t.channel,
+      program: t.program,
+      drums: t.channel === 10,
+      notes: Object.freeze(t.notes.map((n) => Object.freeze({ at: n.at, beats: n.beats, pitch: n.pitch, note: noteName(n.pitch), velocity: n.velocity })))
+    })))
+  });
+  if (values3.size >= 8) values3.delete(values3.keys().next().value);
+  values3.set(text, value);
+  return value;
+}
+
+// compiler/samples.ts
+var SAMPLES_EXTENSION = ".samples";
+var VERSION4 = 1;
+var BLOCK = 4096;
+var ESCAPE = 24;
+var BitReader = class {
+  at = 0;
+  bit = 0;
+  bytes;
+  constructor(bytes2) {
+    this.bytes = bytes2;
+  }
+  one() {
+    if (this.at >= this.bytes.length) throw new Error("A recording in this .samples file ends too soon: the file is cut short.");
+    const b = this.bytes[this.at] >> 7 - this.bit & 1;
+    if (++this.bit === 8) {
+      this.bit = 0;
+      this.at++;
+    }
+    return b;
+  }
+  read(bits) {
+    let v = 0;
+    for (let k = 0; k < bits; k++) v = v << 1 | this.one();
+    return v >>> 0;
+  }
+};
+var predict = (order, a2, b, c2) => order === 0 ? 0 : order === 1 ? a2 : order === 2 ? 2 * a2 - b : 3 * a2 - 3 * b + c2;
+function decodeChannel(r, frames) {
+  const out = new Float32Array(frames), s = new Int32Array(frames);
+  for (let from = 0; from < frames; from += BLOCK) {
+    const to = Math.min(frames, from + BLOCK), order = r.read(2), k = r.read(5);
+    for (let i = from; i < to; i++) {
+      let q = 0;
+      while (q < ESCAPE && r.one()) q++;
+      const u = q >= ESCAPE ? r.read(20) : (q << k | (k ? r.read(k) : 0)) >>> 0;
+      const res = u & 1 ? -(u + 1 >>> 1) : u >>> 1;
+      const a2 = i > 0 ? s[i - 1] : 0, b = i > 1 ? s[i - 2] : 0, c2 = i > 2 ? s[i - 3] : 0;
+      s[i] = res + predict(order, a2, b, c2);
+      out[i] = s[i] / 32768;
+    }
+  }
+  return out;
+}
+function checkZones(zones, samples) {
+  zones.forEach((z, k) => {
+    const where = `Zone ${k + 1} of the instrument`;
+    if (!(Number.isInteger(z.sample) && z.sample >= 0 && z.sample < samples)) throw new Error(`${where} names recording ${z.sample}, of 0 \u2026 ${samples - 1}.`);
+    for (const [name, v, lo, hi] of [["key", z.key, 0, 127], ["lo", z.lo, 0, 127], ["hi", z.hi, 0, 127], ["vlo", z.vlo, 0, 127], ["vhi", z.vhi, 0, 127]]) {
+      if (!(Number.isInteger(v) && v >= lo && v <= hi)) throw new Error(`${where}: its ${name} is a whole number ${lo} \u2026 ${hi}, not ${v}.`);
+    }
+    if (z.lo > z.hi || z.vlo > z.vhi) throw new Error(`${where} plays no key or no strength: keys ${z.lo} \u2026 ${z.hi}, strengths ${z.vlo} \u2026 ${z.vhi}.`);
+    if (z.trigger !== void 0 && !["attack", "release", "pedal-down", "pedal-up"].includes(z.trigger)) throw new Error(`${where}: its trigger is "attack", "release", "pedal-down" or "pedal-up", not ${JSON.stringify(z.trigger)}.`);
+  });
+}
+function hashBytes(b) {
+  let a2 = 2166136261, c2 = 2538058380;
+  const words = Math.floor(b.length / 4), view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  for (let i = 0; i < words; i++) {
+    const x = view.getUint32(i * 4, true);
+    a2 = Math.imul(a2 ^ x, 16777619) >>> 0;
+    c2 = Math.imul(c2 ^ x, 1540483477) >>> 0;
+    c2 = (c2 ^ c2 >>> 15) >>> 0;
+  }
+  for (let i = words * 4; i < b.length; i++) {
+    a2 = Math.imul(a2 ^ b[i], 16777619) >>> 0;
+    c2 = Math.imul(c2 ^ b[i], 1540483477) >>> 0;
+  }
+  return a2.toString(16).padStart(8, "0") + c2.toString(16).padStart(8, "0");
+}
+function readSamples(text) {
+  let h;
+  try {
+    h = JSON.parse(text);
+  } catch {
+    throw new Error("This is not a sampled instrument TrigScript made: a .samples file is one line of JSON.");
+  }
+  if (h?.trigscript !== "samples" || typeof h.data !== "string" || !Array.isArray(h.samples) || !Array.isArray(h.zones)) throw new Error("This is not a sampled instrument TrigScript made.");
+  if (h.version !== VERSION4) throw new Error(`This instrument was written by a newer TrigScript (format ${h.version}); update the plugin to read it.`);
+  const rate = Number(h.rate);
+  if (!(Number.isInteger(rate) && rate >= 8e3 && rate <= 96e3)) throw new Error(`The instrument's rate is 8 000 to 96 000 samples a second, not ${h.rate}.`);
+  checkZones(h.zones, h.samples.length);
+  const data = fromBase64(h.data);
+  let o = 0, seconds = 0;
+  const parts = h.samples.map((s) => {
+    const bytes2 = data.subarray(o, o + s.bytes);
+    o += s.bytes;
+    if (bytes2.length < s.bytes) throw new Error(`The recording ${s.name} ends too soon: the file is cut short.`);
+    seconds += s.frames / rate;
+    return { s, bytes: bytes2, hash: hashBytes(bytes2) };
+  });
+  const identity = hashBytes(new TextEncoder().encode(`${rate}|${JSON.stringify(h.zones)}|${parts.map((p) => p.hash).join(",")}`));
+  const clips = parts.map(({ s, bytes: bytes2, hash }) => storedClip(`samples:${identity}:${hash}:${s.channels}:${s.frames}:${rate}`, rate, s.frames, s.channels, () => {
+    const r = new BitReader(bytes2);
+    return Array.from({ length: s.channels }, () => decodeChannel(r, s.frames));
+  }));
+  const zones = h.zones.map((z) => Object.freeze({ ...z, clip: clips[z.sample] }));
+  return Object.freeze({
+    __trigscript: "samples",
+    name: typeof h.name === "string" ? h.name : "",
+    credit: typeof h.credit === "string" ? h.credit : "",
+    rate,
+    zones: Object.freeze(zones),
+    seconds
+  });
+}
+var values4 = /* @__PURE__ */ new Map();
+function samplesValue(text) {
+  const hit = values4.get(text);
+  if (hit) return hit;
+  const v = readSamples(text);
+  if (values4.size >= 4) values4.delete(values4.keys().next().value);
+  values4.set(text, v);
+  return v;
+}
+function makeSamples(zones, options) {
+  if (!Array.isArray(zones) || zones.length === 0) throw new Error('samples() takes zones, one at least: samples([{ clip: c4, key: "C4" }]).');
+  const keyOf3 = (v, what) => {
+    if (typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 127) return v;
+    if (typeof v === "string") return Math.round(69 + 12 * Math.log2(hertz(v) / 440));
+    throw new Error(`${what} is a key: a note's name ("C4") or its number (60), not ${JSON.stringify(v)}.`);
+  };
+  const made2 = zones.map((z, k) => {
+    const where = `samples()' zone ${k + 1}`;
+    if (!z || !isClip(z.clip)) throw new Error(`${where} has no clip: { clip, key: "C4" }.`);
+    const key = keyOf3(z.key, `${where}'s key`);
+    const data = { ...z, sample: k, key, lo: z.lo === void 0 ? 0 : keyOf3(z.lo, `${where}'s lo`), hi: z.hi === void 0 ? 127 : keyOf3(z.hi, `${where}'s hi`), vlo: z.vlo ?? 1, vhi: z.vhi ?? 127 };
+    return data;
+  });
+  checkZones(made2, made2.length);
+  return Object.freeze({
+    __trigscript: "samples",
+    name: options?.name ?? "",
+    credit: options?.credit ?? "",
+    rate: made2[0].clip.rate,
+    zones: Object.freeze(made2.map((z) => Object.freeze({ ...z }))),
+    seconds: made2.reduce((n, z) => n + z.clip.seconds, 0)
+  });
+}
+
 // compiler/media.ts
+var isImageFile = (path) => path.toLowerCase().endsWith(IMAGE_EXTENSION);
+var isSoundFile = (path) => path.toLowerCase().endsWith(SOUND_EXTENSION);
+var isNotesFile = (path) => path.toLowerCase().endsWith(NOTES_EXTENSION);
+var isSamplesFile = (path) => path.toLowerCase().endsWith(SAMPLES_EXTENSION);
+var VERSION5 = 1;
+function readVideo(text) {
+  let h;
+  try {
+    h = JSON.parse(text);
+  } catch {
+    throw new Error("This is not a video TrigScript imported: a .video file is one line of JSON.");
+  }
+  if (h?.trigscript !== "video" || typeof h.data !== "string") throw new Error("This is not a video TrigScript imported.");
+  if (h.version !== VERSION5) throw new Error(`This video was written by a newer TrigScript (format ${h.version}); update the plugin to read it.`);
+  const width = Number(h.width), height = Number(h.height), length2 = Number(h.frames), frameMs = Number(h.frameMs);
+  if (![width, height, length2].every((k) => Number.isInteger(k) && k >= 0) || !(frameMs > 0)) throw new Error("The video's sizes are not whole numbers.");
+  const n = width * height, stride = n + 7 >> 3;
+  const coder = new RangeDecoder(fromBase64(h.data));
+  const odds = new Uint16Array(1 << CONTEXT_BITS).fill(PROB_HALF);
+  const bits = new Uint8Array(stride * length2);
+  let previous = new Uint8Array(n), now = new Uint8Array(n);
+  for (let f = 0; f < length2; f++) {
+    const base = f * stride;
+    for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i++) {
+      const b = coder.bit(odds, context(now, previous, width, height, x, y));
+      now[i] = b;
+      if (b) bits[base + (i >> 3)] |= 1 << (i & 7);
+    }
+    if (coder.overrun) throw new Error("The video's frames end too soon: the file is cut short.");
+    [previous, now] = [now, previous];
+  }
+  return Object.freeze({
+    width,
+    height,
+    length: length2,
+    frameMs,
+    ...typeof h.source === "string" ? { source: h.source } : {},
+    tiles(i) {
+      if (!(Number.isInteger(i) && i >= 0 && i < length2)) throw new RangeError(`The video has frames 0 \u2026 ${length2 - 1}; there is no frame ${i}.`);
+      const out = new Uint8Array(n), base = i * stride;
+      for (let k = 0; k < n; k++) out[k] = bits[base + (k >> 3)] >> (k & 7) & 1;
+      return out;
+    }
+  });
+}
 var isVideo = (v) => typeof v === "object" && v !== null && v.__trigscript === "video";
+var values5 = /* @__PURE__ */ new Map();
+function videoValue(text) {
+  const hit = values5.get(text);
+  if (hit) return hit;
+  const data = readVideo(text);
+  const video = Object.freeze({
+    __trigscript: "video",
+    width: data.width,
+    height: data.height,
+    length: data.length,
+    frameMs: data.frameMs,
+    seconds: data.length * data.frameMs / 1e3,
+    frame(i) {
+      const t = data.tiles(i), rows = [];
+      for (let y = 0; y < data.height; y++) {
+        let row = "";
+        for (let x = 0; x < data.width; x++) row += t[y * data.width + x] ? "#" : ".";
+        rows.push(row);
+      }
+      return Object.freeze(rows);
+    },
+    tiles: (i) => data.tiles(i)
+  });
+  if (values5.size >= 5) values5.delete(values5.keys().next().value);
+  values5.set(text, video);
+  return video;
+}
+var mediaValue = (path, text) => isImageFile(path) ? imageValue(text) : isSoundFile(path) ? clipValue(text) : isNotesFile(path) ? notesValue(text) : isSamplesFile(path) ? samplesValue(text) : videoValue(text);
+var CONTEXT_BITS = 11;
+function context(now, previous, width, height, x, y) {
+  const i = y * width + x;
+  const left = x > 0, right = x + 1 < width, up = y > 0;
+  return (left ? now[i - 1] : 0) | (x > 1 ? now[i - 2] : 0) << 1 | (up && left ? now[i - width - 1] : 0) << 2 | (up ? now[i - width] : 0) << 3 | (up && right ? now[i - width + 1] : 0) << 4 | (y > 1 ? now[i - 2 * width] : 0) << 5 | previous[i] << 6 | (left ? previous[i - 1] : 0) << 7 | (right ? previous[i + 1] : 0) << 8 | (up ? previous[i - width] : 0) << 9 | (y + 1 < height ? previous[i + width] : 0) << 10;
+}
 
 // compiler/runtime.ts
 var DEATHS_TABLE_ADDRESS = 5808996;
@@ -6555,11 +7333,11 @@ function createRuntime(names, collector, options = {}) {
       throw new ScriptError(err instanceof Error ? err.message : String(err));
     }
     const who = human(player, "chatted: player");
-    const values = {};
+    const values6 = {};
     parsed.captures.forEach((c2, i) => {
-      values[c2.name] = inputValue(`chatted(\u2026).${c2.name}`, { source: "chat", pattern, capture: i, player: who }, false);
+      values6[c2.name] = inputValue(`chatted(\u2026).${c2.name}`, { source: "chat", pattern, capture: i, player: who }, false);
     });
-    return Object.freeze({ __trigscript: "chat", pattern: parsed, matched: inputValue("chatted(\u2026)", { source: "chat", pattern, capture: null, player: who }, true), values: Object.freeze(values) });
+    return Object.freeze({ __trigscript: "chat", pattern: parsed, matched: inputValue("chatted(\u2026)", { source: "chat", pattern, capture: null, player: who }, true), values: Object.freeze(values6) });
   };
   rt.reserveLocation = (why) => {
     if (typeof why !== "string" || !why.trim()) throw new ScriptError(`reserveLocation() takes the reason, which the map's requirements show: reserveLocation("fog: where each brush is made").`);
@@ -6591,6 +7369,7 @@ function createRuntime(names, collector, options = {}) {
   rt.silence = built(silence);
   rt.mixdown = built(mixdown);
   rt.together = built(together);
+  rt.samples = built(makeSamples);
   rt.fm = built(fm);
   rt.pluck = built(pluck);
   rt.centerLocation = () => {
@@ -8437,7 +9216,11 @@ function register(payload) {
   registry.where = () => where(new Error()) ?? { file: ENTRY_FILE, line: 1 };
   const runtime = { ...createRuntime(payload.names, collector), ...registry.library() };
   collector.running = true;
-  const failure = runModules(linked, entryOf(linked.keys()), runtime, MODULE_NAME, { imported: TESTING_NAMES, then: [...linked.keys()].filter(isTestFile).sort() });
+  const media = new Map(payload.media ?? []);
+  const failure = runModules(linked, entryOf(linked.keys()), runtime, MODULE_NAME, { imported: TESTING_NAMES, then: [...linked.keys()].filter(isTestFile).sort(), media: (path) => {
+    const text = media.get(path);
+    return text === void 0 ? void 0 : mediaValue(path, text);
+  } });
   collector.running = false;
   return { linked, registry, where, error: failure ? `${failure.file ?? ENTRY_FILE}:${failure.line ?? 1}: ${failure.message}` : null };
 }
