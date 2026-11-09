@@ -6718,6 +6718,52 @@ Disruption Web in Remastered either. The explosions show on the downbeats.
 **Chosen (the user, 2026-11-09):** falling notes; the main screen a row every other frame (A2); the storm with red
 flashes on each chord and explosions on the big downbeats only (their game sounds heard).
 
+#### S7 the showcase build (built 2026-11-09)
+
+Branch `fur-elise-visual`, with `fur-elise` (the soundtrack) merged in. `probes/fur-elise-showcase.ts`, lobby "Für
+Elise": the whole piece as one clip, started two frames before the picture's frame 0 (the probe's ~95 ms becomes
+~11 ms), the picture played back from tables worked out when the script is built.
+
+**Generic over the timeline.** The soundtrack will change (an arrangement in a style still to choose), so
+`probes/lib/fur-elise-showcase-run.ts` takes everything from `probes/lib/fur-elise-timeline.ts` (made again by
+`fur-elise-timeline-gen.mts`):
+- *The hands:* parts "right" and "left" when there are, else the two pitched parts with the most notes (the higher the
+  lead). Drum parts (by name: drum, kit, perc, kick, snare, hat, cymbal, clap) are drawn on no roll; they still weigh
+  in the downbeats.
+- *The keyboards:* `fitKeys` (in `probes/lib/note-timeline.ts`, tested) takes the window of keys that holds the most
+  notes within a limit and moves the rest in by octaves. Main screen: at most 40 white keys, 16–20 px apart, the last at
+  view x 830. Minimap: at most 64 keys, the map's columns of cells.
+- *The loud sections:* those whose mean velocity is at least 1.25 times the piece's. There the lead's chords (two or
+  more notes on one bar and beat) are red and the white keys flash red for two frames on each.
+- *The explosions:* the downbeats of the loud sections weighed by the velocities struck on them, the three heaviest at
+  least four bars apart; the heaviest gets three Battlecruisers across the stage, the others a Wraith over each lead
+  note. For Für Elise that picks C16, C9 and C1, the three bars the score marks with an accent.
+- *The end:* the end line 48 frames after the last note is let go, the tables 15 s past it; then the program stops
+  and the game waits, the keyboard up.
+
+**Für Elise as it is now** (the 3:33 soundtrack, a stand-in until the arrangement is chosen): the hands play A1 … E7, 68
+keys. The main screen holds all of them: 40 white keys 16 px apart from view x 206 (the probe's 20 px would need
+800); a Spider Mine is 15 px square, so 16 apart never overlap, and only A1 and B1 sit under where the text lines
+show. The minimap's 64 columns take A1 … C7, so E7's run shows an octave down there. The orchestra (violins … timpani,
+the storm only) is drawn on the minimap in violet, under the piano: the minimap then shows the storm as the full
+arrangement it is, while the main screen stays a piano keyboard; the orchestra's notes on the stage's keys would light
+keys the piano does not play. Colours by owner (CRGB): P3 white keys, P4 indigo black keys, P5 gold right hand, P6
+cyan left hand, P7 red, P8 violet. The sync lamp is gone.
+
+**Checked.** `tests/fur-elise-showcase-run.test.ts` (keyboards, hands, loud section, explosions, flashes, no overlapping
+Flags, the changes rebuild the pictures); in the lifted game the test "every frame of the piece shows the picture
+worked out" holds over all 5,180 frames, and none of the explosions' units outlives its frame. The text test reads the
+end line by its ASCII part: the lifted game shows the map's UTF-8 as Latin-1 ("FÃ¼r"), where Remastered showed the ü in
+the probe's lobby.
+
+**Found on the way:**
+- The soundtrack had to be importable without its probe's program: `probes/lib/fur-elise-soundtrack.ts` holds it now,
+  `probes/fur-elise.ts` imports it (the same six clips by name, the timeline the same to the byte).
+- A script that imports media (a `.samples`, `.sound`, …) could not run beside the game for its tests: the game host
+  ran the modules without the media. `GameTestPayload.media` carries them now (`scripts/test-game.mts` passes them;
+  `tests/game-media.test.ts`). The editor's host does not pass them yet.
+- A module-level name `together` collides with the library's (as `sounds` did in the probe).
+
 ### Smaller things that show well
 
 Each is small and makes the editor feel like it knows the game. They go in where a slice
