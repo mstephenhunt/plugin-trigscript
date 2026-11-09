@@ -365,7 +365,8 @@ export function sampled(set: Samples, options: SampledOptions = {}): Instrument 
         parts.push({ clip: voice(z, key, v, held, release, rate), at: n.at });
         if (!stolen) { const r = letGo(key, v, held, count); if (r) parts.push({ clip: r, at: off }); }
       });
-      if (releases) for (const [down, up] of pedal) {
+      // (A pedal down before 0 was put down, and comes up, in the excerpt before this one: no sound of it here.)
+      if (releases) for (const [down, up] of pedal) if (down >= 0) {
         for (const [trigger, at] of [["pedal-down", down], ["pedal-up", up]] as const) {
           const list = set.zones.filter((z) => z.trigger === trigger);
           if (list.length === 0) continue;
@@ -1231,6 +1232,33 @@ export function perform(options: PerformOptions, parts: Readonly<Record<string, 
   return made;
 }
 
+/**
+ * The part of a performance from bar `from` up to bar `to` (not included; to its end when left out), bars as
+ * `performance.bars` counts them, as a performance from 0 of its own: the notes struck in it, their times from its
+ * start, and the pedal — down already when the pedal went down before it (its sound is the excerpt's before), held to
+ * where it comes up. Render a long piece a section at a time, each with its room, its tail ringing on under the next
+ * when the sections are added up at their `at`s: `music.render(music.excerpt(take, 44, 60), { reverb: ROOM })`.
+ */
+export function excerpt(p: Performance, from: number, to?: number): Performance & { readonly at: number } {
+  const inside = performances.get(p);
+  if (!inside) throw new Error("excerpt() takes a performance made by music.perform.");
+  const last = p.bars.length - 1;
+  if (!(Number.isInteger(from) && from >= 0 && from <= last)) throw new Error(`excerpt() starts on a bar, 0 to ${last}, not ${from}.`);
+  if (to !== undefined && !(Number.isInteger(to) && to > from && to <= last)) throw new Error(`excerpt() ends on a bar after ${from}, at most ${last}, not ${to}.`);
+  const a = p.bars[from], b = to === undefined ? Infinity : p.bars[to];
+  const notes = p.notes.filter((n) => n.at >= a - 1e-9 && n.at < b - 1e-9).map((n) => Object.freeze({ ...n, at: n.at - a, end: n.end - a, frame: Math.round((n.at - a) / FRAME) }));
+  const clip = (list: readonly (readonly [number, number])[]) => list.filter(([d, u]) => u > a && d < b).map(([d, u]) => [d - a, u - a] as [number, number]);
+  const pedal = new Map<Instrument, [number, number][]>();
+  for (const [inst, list] of inside.pedal) pedal.set(inst, clip(list));
+  const made = Object.freeze({
+    kind: "performance" as const, at: a, notes: Object.freeze(notes), pedal: Object.freeze(clip(p.pedal).map((x) => Object.freeze(x))),
+    bars: Object.freeze(p.bars.slice(from, to === undefined ? undefined : to + 1).map((t) => t - a)), parts: p.parts,
+    seconds: Math.max(0, ...notes.map((n) => n.end)),
+  });
+  performances.set(made, { parts: inside.parts, pedal });
+  return made;
+}
+
 /** What `render` needs of a performance besides what it shows: its parts as given, and each instrument's pedal. */
 const performances = new WeakMap<Performance, { readonly parts: readonly { readonly name: string; readonly part: PerformPart }[]; readonly pedal: Map<Instrument, [number, number][]> }>();
 
@@ -1679,6 +1707,6 @@ export const loop = game(async (s: Song) => {
 
 /** Everything above as one name: import { music } from "trigscript/music"; music.play(song). */
 export const music = {
-  sampler, sampled, perform, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
+  sampler, sampled, perform, excerpt, synth, fmSynth, strings, presets, drums, kit, track, song, render, play, loop,
   part, section, arrange, transpose, stretch, repeat, beat, chord, over, chords, bars, pump, riser, impact, midi, stems, conduct,
 };

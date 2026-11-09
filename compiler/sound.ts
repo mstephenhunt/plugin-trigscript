@@ -600,7 +600,8 @@ function lazyClip(rate: number, frames: number, channels: 1 | 2, compute: () => 
       const pedal = options?.pedal, amount = options?.amount ?? 0.25, decay = options?.decay ?? 3;
       if (!Array.isArray(pedal)) throw new Error("resonance() takes the pedal: { pedal: [[down, up], …] } in seconds.");
       const ps = pedal.map((p, k) => {
-        if (!Array.isArray(p) || p.length !== 2 || !(num(p[0], "a pedal's down") >= 0) || !(num(p[1], "a pedal's up") >= p[0])) throw new Error(`resonance()'s pedal ${k + 1} is [down, up], seconds, up after down.`);
+        // (A down before 0: the pedal was down already when the clip begins.)
+        if (!Array.isArray(p) || p.length !== 2 || !Number.isFinite(num(p[0], "a pedal's down")) || !(num(p[1], "a pedal's up") >= p[0])) throw new Error(`resonance()'s pedal ${k + 1} is [down, up], seconds, up after down.`);
         return [p[0], p[1]] as [number, number];
       });
       if (!(num(amount, "resonance()'s amount") >= 0 && amount <= 2)) throw new RangeError(`resonance()'s amount is 0 to 2, not ${amount}.`);
@@ -744,9 +745,11 @@ export function mixdown(parts: unknown, seconds?: unknown, rate?: number): Clip 
  * samples too, however loud each is: what a limiter does for a mix, for sounds the game adds up itself. Never turned
  * up. A clip given several times is one clip back, and one file in the map. `over`: clips that may play on top, each at
  * any of its times (a stinger on any bar line) — the gain leaves room for them too, and they come back after the parts,
- * turned down with them. The gain is worked out when a build needs the samples, from the whole mix.
+ * turned down with them. The gain is worked out when a build needs the samples, from the whole mix. `lufs`: instead, the
+ * one gain — up or down — that brings what they add up to to that loudness (`Clip.lufs`): sections of a piece made
+ * apart, kept as loud against one another as they were played.
  */
-export function together(parts: unknown, options?: { readonly peak?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[] {
+export function together(parts: unknown, options?: { readonly peak?: number; readonly lufs?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[] {
   if (!Array.isArray(parts) || parts.length === 0) throw new Error("together() takes { clip, at } parts, one at least.");
   const list = parts.map((p, k) => {
     const c = (p as { clip?: unknown })?.clip, at = (p as { at?: unknown })?.at ?? 0;
@@ -760,9 +763,15 @@ export function together(parts: unknown, options?: { readonly peak?: number; rea
     if (!isClip(o?.clip) || !Array.isArray(o.at)) throw new Error(`together()'s over ${k + 1} is { clip, at: [seconds, …] }.`);
     return { clip: o.clip, at: o.at.map((t) => num(t, "an over's time")) };
   });
-  const whole = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at])]);
+  const lufs = options?.lufs;
+  if (lufs !== undefined && !(num(lufs, "together()'s lufs") >= -70 && lufs <= 0)) throw new RangeError(`together()'s lufs is −70 to 0, not ${lufs}.`);
+  const whole = recipe("together", [list.map((p) => [p.clip, p.at]), peak, over.map((o) => [o.clip, o.at]), ...(lufs === undefined ? [] : [lufs])]);
   let gain: number | undefined;
   const turn = () => {
+    if (gain === undefined && lufs !== undefined) {
+      const now = mixdown(list).lufs;
+      gain = Number.isFinite(now) ? 10 ** ((lufs - now) / 20) : 1;
+    }
     if (gain === undefined) {
       const sum = samplesOf(mixdown(list));
       let top = 0;

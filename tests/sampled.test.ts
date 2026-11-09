@@ -192,6 +192,39 @@ describe("music.perform", () => {
   });
 });
 
+describe("music.excerpt", () => {
+  it("takes the bars asked for, from 0, with the pedal down already where it went down before them", () => {
+    const r = run(`
+      const piano = music.sampled(inst, { releases: false });
+      const take = music.perform({ meter: "3/8", bpm: 120, pickup: "1/8" }, {
+        right: { instrument: piano, notes: ["A4/8", "A4/8 B4 C5", "ped A4/4.", "B4/8 C5 D5 *"] },
+      });
+      const part = music.excerpt(take, 3);
+      const opening = music.excerpt(take, 0, 3);
+      const show = (p: typeof part) => p.notes.map((n) => \`\${n.note}@\${n.at.toFixed(2)}/\${n.bar}\`).join(" ");
+      if (Math.abs(part.at - 3.5) > 1e-6) fail(\`at \${part.at}\`);
+      if (show(part) !== "B4@0.00/3 C5@0.50/3 D5@1.00/3") fail(show(part));
+      if (show(opening) !== "A4@0.00/0 A4@0.50/1 B4@1.00/1 C5@1.50/1 A4@2.00/2") fail(show(opening));
+      if (part.pedal.length !== 1 || Math.abs(part.pedal[0][0] + 1.5) > 1e-6 || Math.abs(part.pedal[0][1] - 1.5) > 1e-6) fail(JSON.stringify(part.pedal));
+      if (part.bars.length !== 2 || part.bars[0] !== 0) fail(part.bars.join());
+      // The pedal down before the excerpt holds its B4 to the pedal's lift (1.5 s), and makes no sound of its own.
+      const held = music.render(part, { limit: false });
+      if (Math.abs(held.seconds - Math.max(1.5 + 0.1, 1.0 + 0.5 + 0.1)) > 0.05) fail(\`\${held.seconds}\`);
+      program(async () => { playWav(held.wav(), 0); });`);
+    expect(errors(r)).toEqual([]);
+  });
+
+  it("brings sections made apart to one loudness with one gain, as loud against one another as they were", () => {
+    const r = run(`
+      const loud = tone("A4", 2, { volume: 0.5 }), soft = tone("A4", 2, { volume: 0.05 });
+      const [a, b] = together([{ clip: loud, at: 0 }, { clip: soft, at: 2 }], { lufs: -20 });
+      const sum = mixdown([{ clip: a, at: 0 }, { clip: b, at: 2 }]);
+      if (Math.abs(sum.lufs + 20) > 0.2) fail(\`\${sum.lufs}\`);
+      if (Math.abs(a.peak / b.peak - 10) > 0.01) fail(\`\${a.peak / b.peak}\`);`);
+    expect(errors(r)).toEqual([]);
+  });
+});
+
 describe("loudness and sympathy", () => {
   it("measures a full-scale 997 Hz sine at −3.01 LUFS on one side, 0 from both (as the game plays one channel), and brings a clip to a loudness", () => {
     const sine = tone(997, 3, { volume: 1, rate: 48000 });

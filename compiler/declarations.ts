@@ -691,9 +691,11 @@ ${kw}function mixdown(parts: readonly { readonly clip: Clip; readonly at: number
  * over them — each turned down by one gain, so what they add up to never goes over \`peak\` (0.84, −1.5 dB), between
  * the samples too: what a limiter does for a mix, for sounds the game adds up itself. Never turned up. The same clip
  * given twice comes back as one. \`over\`: clips that may play on top, each at any of its times (a stinger on any bar
- * line), room left for them too; they come back after the parts, turned down with them. When the script is built: \`const [a, b] = together([{ clip: x, at: 0 }, { clip: y, at: 1 }])\`
+ * line), room left for them too; they come back after the parts, turned down with them. \`lufs\`: instead the one gain,
+ * up or down, that brings them together to that loudness — sections of a piece rendered apart, kept as loud against
+ * one another as they were played. When the script is built: \`const [a, b] = together([{ clip: x, at: 0 }, { clip: y, at: 1 }])\`
  */
-${kw}function together(parts: readonly { readonly clip: Clip; readonly at: number }[], options?: { readonly peak?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[];
+${kw}function together(parts: readonly { readonly clip: Clip; readonly at: number }[], options?: { readonly peak?: number; readonly lufs?: number; readonly over?: readonly { readonly clip: Clip; readonly at: readonly number[] }[] }): Clip[];
 /** A brush of cover(): which of the shapes (0 the first), centred on tile (x, y) of the picture. */
 ${kw}interface Brush { readonly x: number; readonly y: number; readonly shape: number }
 /**
