@@ -10375,6 +10375,48 @@ function keepsState(ts, checker, fn, seen = /* @__PURE__ */ new Set()) {
   keepsStateMemo.set(fn, found);
   return found;
 }
+var reachesForbiddenMemo = /* @__PURE__ */ new WeakMap();
+function reachesForbidden(ts, checker, fn, seen = /* @__PURE__ */ new Set()) {
+  const hit = reachesForbiddenMemo.get(fn);
+  if (hit !== void 0) return hit;
+  if (seen.has(fn)) return null;
+  const root = seen.size === 0;
+  seen.add(fn);
+  let found = null;
+  const through2 = (decl, name) => {
+    if (!decl || decl === fn || !ts.isFunctionLike(decl) || !decl.body || decl.getSourceFile().isDeclarationFile) return;
+    const rest = reachesForbidden(ts, checker, decl, seen);
+    if (rest) found = [name, ...rest];
+  };
+  const look = (n) => {
+    if (found) return;
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+      const lib = ts.isCallExpression(n) ? libraryCallName(ts, checker, n) : null;
+      if (lib && FORBIDDEN_INSIDE.has(lib)) {
+        found = [lib];
+        return;
+      }
+      through2(checker.getResolvedSignature(n)?.declaration, calledName(ts, n));
+    } else if (ts.isIdentifier(n)) {
+      const decl = declarationOf(ts, checker, n);
+      through2(decl && (isScriptFunction(ts, decl) ? decl : scriptArrow(ts, decl)), n.text);
+      return;
+    }
+    ts.forEachChild(n, look);
+  };
+  const body2 = fn.body;
+  if (body2) look(body2);
+  if (found || root) reachesForbiddenMemo.set(fn, found);
+  return found;
+}
+function calledName(ts, call) {
+  let callee = call.expression;
+  while (ts.isParenthesizedExpression(callee) || ts.isNonNullExpression(callee)) callee = callee.expression;
+  return ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : callee.getText();
+}
+function reachesForbiddenMessage(name, chain) {
+  return `${name}() calls ${chain.map((f) => `${f}()`).join(", which calls ")}, which defines triggers of its own and cannot be used inside program(); call ${name}() at the top of the file instead.`;
+}
 function classMember(ts, decl) {
   return (ts.isMethodDeclaration(decl) || ts.isGetAccessorDeclaration(decl) || ts.isSetAccessorDeclaration(decl) || ts.isConstructorDeclaration(decl)) && !!decl.body && isScriptClass(ts, decl.parent);
 }
@@ -10672,6 +10714,10 @@ function planWithin(ts, checker, plan, arrow, options, forced) {
         ok = false;
         return;
       }
+      if (own && reachesForbidden(ts, checker, own)) {
+        ok = false;
+        return;
+      }
       if (decl && (isScriptFunction(ts, decl) || scriptArrow(ts, decl)) && (ts.isArrayLiteralExpression(p) || ts.isPropertyAssignment(p) && p.initializer === n || ts.isShorthandPropertyAssignment(p))) {
         ok = false;
         return;
@@ -10721,7 +10767,7 @@ function planWithin(ts, checker, plan, arrow, options, forced) {
       }
       if (ts.isCallExpression(n)) {
         const callee = checker.getResolvedSignature(n)?.declaration;
-        if (callee && ts.isFunctionLike(callee) && callee.body && !callee.getSourceFile().isDeclarationFile && keepsState(ts, checker, callee)) {
+        if (callee && ts.isFunctionLike(callee) && callee.body && !callee.getSourceFile().isDeclarationFile && (keepsState(ts, checker, callee) || reachesForbidden(ts, checker, callee))) {
           ok = false;
           return;
         }
@@ -10805,7 +10851,13 @@ function planWithin(ts, checker, plan, arrow, options, forced) {
       error(e, "A class written as a value is not supported inside program(); declare it with class.");
       return;
     }
-    if (ts.isIdentifier(e)) return;
+    if (ts.isIdentifier(e)) {
+      const decl = declarationOf(ts, checker, e);
+      const own = decl && (isScriptFunction(ts, decl) ? decl : scriptArrow(ts, decl));
+      const chain = own && reachesForbidden(ts, checker, own);
+      if (chain) error(e, reachesForbiddenMessage(e.text, chain));
+      return;
+    }
     if (ts.isPropertyAccessExpression(e)) {
       value(e.expression, items);
       return;
@@ -10823,6 +10875,13 @@ function planWithin(ts, checker, plan, arrow, options, forced) {
         return;
       }
       if (lib && FORBIDDEN_INSIDE.has(lib)) error(e, `${lib}() defines triggers of its own and cannot be used inside program(); inside, write conditions in an if and actions as statements.`);
+      let called = e.expression;
+      while (ts.isParenthesizedExpression(called) || ts.isNonNullExpression(called)) called = called.expression;
+      if (!lib && !ts.isIdentifier(called)) {
+        const to = checker.getResolvedSignature(e)?.declaration;
+        const chain = to && ts.isFunctionLike(to) && to.body && !to.getSourceFile().isDeclarationFile ? reachesForbidden(ts, checker, to) : null;
+        if (chain) error(e, reachesForbiddenMessage(calledName(ts, e), chain));
+      }
       let callee = e.expression;
       while (ts.isParenthesizedExpression(callee)) callee = callee.expression;
       if (isTaskFunction(ts, checker, callee)) callback(callee, items);
