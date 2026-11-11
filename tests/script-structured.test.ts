@@ -612,6 +612,41 @@ describe("structured: diagnostics", () => {
     expect(r.variables.find((v) => v.name === "n")?.at).toEqual({ file: "main.ts", line: 2, column: 7 });
   });
 
+  it("a function that reaches program() or trigger() is refused where a program names it", () => {
+    const T = `trigger(P1, [always()], [victory()]);`;
+    const refused = (name: string, way: string) => `${name}() calls ${way}, which defines triggers of its own and cannot be used inside program(); call ${name}() at the top of the file instead.`;
+    // Nothing in such a call is the game's, so it was worked out when the script was built: the trigger was there from the
+    // start of the game, whether or not the program ever reached the call. One error, at the call.
+    expect(messages(`function setup() {\n  program(async () => {});\n}\nprogram(async () => {\n  setup();\n});`)).toEqual([`5:${refused("setup", "program()")}`]);
+    expect(messages(`function setup() {\n  ${T}\n}\nprogram(async () => {\n  await sleep(frames(240));\n  if (deaths(P1, units.TerranMarine, ">=", 5)) setup();\n});`)).toEqual([`6:${refused("setup", "trigger()")}`]);
+    expect(messages(`const setup = () => {\n  ${T}\n};\nprogram(() => {\n  setup();\n});`)).toEqual([`5:${refused("setup", "trigger()")}`]);
+    expect(messages(`function setup() {\n  hyperTriggers();\n}\nprogram(() => {\n  setup();\n});`)).toEqual([`5:${refused("setup", "hyperTriggers()")}`]);
+    expect(messages(`function make() {\n  return game((n: number) => n + 1);\n}\nprogram(() => {\n  const f = make();\n});`)).toEqual([`5:${refused("make", "game()")}`]);
+    // Through another of the script's functions, the way there named.
+    expect(messages(`function build() {\n  ${T}\n}\nfunction setup() {\n  build();\n}\nprogram(() => {\n  setup();\n});`)).toEqual([`8:${refused("setup", "build(), which calls trigger()")}`]);
+    // Its value used, handed to forEach, called with a value of the game, and one that keeps state: all the program's before, refused inside the function.
+    expect(messages(`function setup(): number {\n  ${T}\n  return 3;\n}\nprogram(() => {\n  const n = setup();\n});`)).toEqual([`6:${refused("setup", "trigger()")}`]);
+    expect(messages(`function setup() {\n  ${T}\n}\nprogram(() => {\n  [1, 2].forEach(setup);\n});`)).toEqual([`5:${refused("setup", "trigger()")}`]);
+    expect(messages(`function setup(n: number) {\n  ${T}\n}\nprogram(() => {\n  let n = 0;\n  n++;\n  setup(n);\n});`)).toEqual([`7:${refused("setup", "trigger()")}`]);
+    expect(messages(`let built = false;\nfunction setup() {\n  if (built) return;\n  built = true;\n  program(() => {});\n}\nprogram(() => {\n  setup();\n});`)).toEqual([`8:${refused("setup", "program()")}`]);
+    // In a listener, at the top of a file and in a program; in a game() function; a method.
+    expect(messages(`function setup() {\n  ${T}\n}\non.order((u) => {\n  setup();\n});`)).toEqual([`5:${refused("setup", "trigger()")}`]);
+    expect(messages(`function setup() {\n  ${T}\n}\nprogram(async () => {\n  on.order((u) => {\n    setup();\n  });\n});`)).toEqual([`6:${refused("setup", "trigger()")}`]);
+    expect(messages(`function setup() {\n  ${T}\n}\nconst go = game(() => {\n  setup();\n});\nprogram(() => {\n  go();\n});`)).toEqual([`5:${refused("setup", "trigger()")}`]);
+    expect(messages(`class Wave {\n  start() {\n    ${T}\n  }\n}\nprogram(() => {\n  const w = new Wave();\n  w.start();\n});`)).toEqual([`8:${refused("start", "trigger()")}`]);
+    // From another file, by its name and through a namespace import.
+    const files = (main: string) => compileScript(ts, { "main.ts": main, "more.ts": `export function setup() {\n  ${T}\n}\n` }, NAMES, { lib: LIB }).diagnostics.map((d) => `${d.file}:${d.line}:${d.message}`);
+    expect(files(`import { setup } from "./more";\nprogram(() => {\n  setup();\n});`)).toEqual([`main.ts:3:${refused("setup", "trigger()")}`]);
+    expect(files(`import * as more from "./more";\nprogram(() => {\n  more.setup();\n});`)).toEqual([`main.ts:3:${refused("setup", "trigger()")}`]);
+  });
+
+  it("a function that reaches program() or trigger() is the script's at the top of a file", () => {
+    const r = ok(`function setup() {\n  trigger(P1, [always()], [victory()]);\n  program(() => { displayText("in"); });\n}\nsetup();\nprogram(() => { displayText("beside"); });`);
+    expect([r.triggers.length, r.ir.length]).toEqual([1, 2]);
+    // Two functions that call each other and reach neither: looked through once, and still worked out when the script is built.
+    expect(ok(`function even(n: number): boolean { return n == 0 ? true : odd(n - 1); }\nfunction odd(n: number): boolean { return n == 0 ? false : even(n - 1); }\nprogram(() => {\n  if (even(4)) displayText("even");\n});`).diagnostics).toEqual([]);
+  });
+
   it("what belongs outside a program, and options the run rejects", () => {
     expect(messages(`program(() => {\n  let x = 1;\n  if (x) { trigger(P1, [], []); }\n});`)).toEqual(["3:trigger() defines triggers of its own and cannot be used inside program(); inside, write conditions in an if and actions as statements."]);
     expect(messages(`program(() => {\n  program(() => {});\n});`)).toEqual(["2:program() defines triggers of its own and cannot be used inside program(); inside, write conditions in an if and actions as statements."]);
