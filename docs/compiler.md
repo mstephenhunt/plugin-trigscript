@@ -28,7 +28,11 @@ then plans every `program()` body and every `game()` arrow (`hoist.ts`): the *ga
 bindings* are the body's `let` / `var`, the parameters and the functions declared in it;
 a *hoisted expression* is a maximal subexpression that mentions none of those (and is not
 `random()`, nor a call of a `game()` function, whose type carries a brand), and a
-`const` of the body whose initialiser is hoistable is a build-time constant. The emit
+`const` of the body whose initialiser is hoistable is a build-time constant. A call of
+`trigger()`, `program()`, `hyperTriggers()` or `game()` inside a body is the plan's error,
+and so is a call of one of the script's own functions that reaches one, through however
+many of them: nothing in such a call is the game's, so hoisted it would make its trigger
+when the script is built, whether or not the program ever reached it. The emit
 transformer appends its position to every `trigger()` call and replaces each planned
 arrow with a descriptor holding a function that returns the hoisted expressions as
 thunks and the constants as memoised thunks, every reference to a constant rewritten to a

@@ -428,6 +428,61 @@ export function keepsState(ts: typeof TS, checker: TS.TypeChecker, fn: TS.Node, 
   return found;
 }
 
+const reachesForbiddenMemo = new WeakMap<TS.Node, readonly string[] | null>();
+
+/**
+ * The way from a function of the script's own to a library call that must not appear inside a program
+ * (`FORBIDDEN_INSIDE`): `["program"]` when its body calls `program()`, `["build", "program"]` when it calls the script's
+ * `build()` which does, null when there is none. A call of such a function inside a program names nothing of the game's,
+ * so it would be worked out when the script is built — the trigger made once, from the start of the game, whether or not
+ * the program ever reaches the call. So it is never hoisted, and the plan refuses it where it is written.
+ * A forbidden call anywhere in the body counts, as it does written in a program's own body.
+ */
+export function reachesForbidden(ts: typeof TS, checker: TS.TypeChecker, fn: TS.Node, seen = new Set<TS.Node>()): readonly string[] | null {
+  const hit = reachesForbiddenMemo.get(fn);
+  if (hit !== undefined) return hit;
+  if (seen.has(fn)) return null;
+  const root = seen.size === 0;
+  seen.add(fn);
+  let found: readonly string[] | null = null;
+  const through = (decl: TS.Node | undefined, name: string): void => {
+    if (!decl || decl === fn || !ts.isFunctionLike(decl) || !(decl as TS.FunctionLikeDeclaration).body || decl.getSourceFile().isDeclarationFile) return;
+    const rest = reachesForbidden(ts, checker, decl, seen);
+    if (rest) found = [name, ...rest];
+  };
+  const look = (n: TS.Node): void => {
+    if (found) return;
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+      const lib = ts.isCallExpression(n) ? libraryCallName(ts, checker, n) : null;
+      if (lib && FORBIDDEN_INSIDE.has(lib)) { found = [lib]; return; }
+      // A method, a function reached through a namespace import (`more.setup()`), a constructor.
+      through(checker.getResolvedSignature(n)?.declaration, calledName(ts, n));
+    } else if (ts.isIdentifier(n)) {
+      const decl = declarationOf(ts, checker, n);
+      through(decl && (isScriptFunction(ts, decl) ? decl : scriptArrow(ts, decl)), n.text);
+      return;
+    }
+    ts.forEachChild(n, look);
+  };
+  const body = (fn as TS.FunctionLikeDeclaration).body;
+  if (body) look(body);
+  // (A null found inside another function's search may only be the loop back to that function: a whole search's is kept.)
+  if (found || root) reachesForbiddenMemo.set(fn, found);
+  return found;
+}
+
+/** What a call is written as, for a message: `setup` of `setup()` and of `more.setup()`, `Wave` of `new Wave()`. */
+function calledName(ts: typeof TS, call: TS.CallExpression | TS.NewExpression): string {
+  let callee: TS.Expression = call.expression;
+  while (ts.isParenthesizedExpression(callee) || ts.isNonNullExpression(callee)) callee = callee.expression;
+  return ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : callee.getText();
+}
+
+/** "setup() calls build(), which calls program(), which defines triggers of its own …": what a call that reaches a forbidden one is told. */
+export function reachesForbiddenMessage(name: string, chain: readonly string[]): string {
+  return `${name}() calls ${chain.map((f) => `${f}()`).join(", which calls ")}, which defines triggers of its own and cannot be used inside program(); call ${name}() at the top of the file instead.`;
+}
+
 /** A method, an accessor or a constructor of one of the script's classes: what a call through an instance runs. */
 function classMember(ts: typeof TS, decl: TS.Node): boolean {
   return (ts.isMethodDeclaration(decl) || ts.isGetAccessorDeclaration(decl) || ts.isSetAccessorDeclaration(decl) || ts.isConstructorDeclaration(decl)) && !!decl.body && isScriptClass(ts, decl.parent);
@@ -728,6 +783,8 @@ function planWithin(ts: typeof TS, checker: TS.TypeChecker, plan: ProgramPlan, a
       // run in the game, whatever its arguments.
       const own = decl && (isScriptFunction(ts, decl) ? decl : scriptArrow(ts, decl));
       if (own && (usesGame(ts, checker, own) || keepsState(ts, checker, own))) { ok = false; return; }
+      // One that reaches program() or trigger() (`reachesForbidden`): never run when the script is built from inside a program.
+      if (own && reachesForbidden(ts, checker, own)) { ok = false; return; }
       // A function of the script's own kept in an array or a record (`const fs = [a, b]`): the program's functions as
       // values, which it calls with its own values. Handed to a function (`xs.map(sq)`) or called, it is the script's.
       if (decl && (isScriptFunction(ts, decl) || scriptArrow(ts, decl)) && (ts.isArrayLiteralExpression(p) || (ts.isPropertyAssignment(p) && p.initializer === n) || ts.isShorthandPropertyAssignment(p))) { ok = false; return; }
@@ -754,10 +811,11 @@ function planWithin(ts: typeof TS, checker: TS.TypeChecker, plan: ProgramPlan, a
       if (readsMark(n)) { ok = false; return; }
       // A call of a game() function runs in the game, whatever its arguments are.
       if (ts.isCallExpression(n) && isGame(n)) { ok = false; return; }
-      // So does one of a function that changes what outlives the call, a closure's variable or a field (`keepsState`).
+      // So does one of a function that changes what outlives the call, a closure's variable or a field (`keepsState`), and
+      // one that reaches program() or trigger() (`reachesForbidden`): a method, a function through a namespace import.
       if (ts.isCallExpression(n)) {
         const callee = checker.getResolvedSignature(n)?.declaration;
-        if (callee && ts.isFunctionLike(callee) && (callee as TS.FunctionLikeDeclaration).body && !callee.getSourceFile().isDeclarationFile && keepsState(ts, checker, callee)) { ok = false; return; }
+        if (callee && ts.isFunctionLike(callee) && (callee as TS.FunctionLikeDeclaration).body && !callee.getSourceFile().isDeclarationFile && (keepsState(ts, checker, callee) || reachesForbidden(ts, checker, callee))) { ok = false; return; }
       }
       if (ts.isCallExpression(n) && isReadCall(libraryCallName(ts, checker, n), n.arguments.length)) { ok = false; return; }
       if (ts.isBinaryExpression(n)) {
@@ -813,7 +871,14 @@ function planWithin(ts: typeof TS, checker: TS.TypeChecker, plan: ProgramPlan, a
     const fn = functionWritten(e);
     if (fn) { callback(fn, items); return; }
     if (isFunctionValue(e)) { error(e, "A class written as a value is not supported inside program(); declare it with class."); return; }
-    if (ts.isIdentifier(e)) return;
+    if (ts.isIdentifier(e)) {
+      // A function of the script's own that reaches program() or trigger(): refused where the program names it.
+      const decl = declarationOf(ts, checker, e);
+      const own = decl && (isScriptFunction(ts, decl) ? decl : scriptArrow(ts, decl));
+      const chain = own && reachesForbidden(ts, checker, own);
+      if (chain) error(e, reachesForbiddenMessage(e.text, chain));
+      return;
+    }
     if (ts.isPropertyAccessExpression(e)) { value(e.expression, items); return; }
     if (ts.isElementAccessExpression(e)) { value(e.expression, items); value(e.argumentExpression, items); return; }
     if (ts.isCallExpression(e) || ts.isNewExpression(e)) {
@@ -821,6 +886,14 @@ function planWithin(ts: typeof TS, checker: TS.TypeChecker, plan: ProgramPlan, a
       const clock = clockCall(ts, checker, e);
       if (clock) { error(e, clockMessage(clock)); return; }
       if (lib && FORBIDDEN_INSIDE.has(lib)) error(e, `${lib}() defines triggers of its own and cannot be used inside program(); inside, write conditions in an if and actions as statements.`);
+      // The same through a method or a namespace import (`more.setup()`); a function called by its name is refused at the name, below.
+      let called: TS.Expression = e.expression;
+      while (ts.isParenthesizedExpression(called) || ts.isNonNullExpression(called)) called = called.expression;
+      if (!lib && !ts.isIdentifier(called)) {
+        const to = checker.getResolvedSignature(e)?.declaration;
+        const chain = to && ts.isFunctionLike(to) && (to as TS.FunctionLikeDeclaration).body && !to.getSourceFile().isDeclarationFile ? reachesForbidden(ts, checker, to) : null;
+        if (chain) error(e, reachesForbiddenMessage(calledName(ts, e), chain));
+      }
       // `random()`, `sleep()`, … are the game's: their callee is never a value, however it is spelt (`ts.random()` through a namespace import).
       // Of a method call the object is the value, not the method: `cost.get(u.type)` has to leave `cost` — the Map — in reach, and a
       // method read off its object on its own has lost it.
