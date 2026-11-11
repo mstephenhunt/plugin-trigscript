@@ -51,10 +51,12 @@ function gatherFromRally(worker: Unit) {
 
 /**
  * Turn auto-mining on for the whole game: every human player's new SCV, Probe or Drone rallied to a mineral patch or
- * the player's own finished gas building starts gathering from it. Called once, at the top of a script.
- * @topLevelOnce
+ * the player's own finished gas building starts gathering from it. A call after the first adds nothing.
  */
+let autoMiningOn = false;
 export function autoMining() {
+  if (autoMiningOn) return;
+  autoMiningOn = true;
   program(async () => {
     on.order((worker, order, was) => {
       if (worker.type == units.ZergDrone) {

@@ -31,7 +31,6 @@
 import type * as TS from "typescript";
 import { DECLARATIONS_FILE } from "./declarations";
 import { MODULE_NAME } from "./api";
-import { STDLIB_DIR } from "./link";
 import { INPUT_CALL_NAMES, READ_ARITY, READER_NAMES, UNIT_CALL_NAMES } from "./runtime";
 
 export interface PlanError { node: TS.Node; message: string }
@@ -255,32 +254,6 @@ export function planClass(ts: typeof TS, checker: TS.TypeChecker, cls: TS.ClassD
  */
 export function isTopListener(ts: typeof TS, checker: TS.TypeChecker, node: TS.Node): node is TS.ExpressionStatement {
   return ts.isExpressionStatement(node) && ts.isSourceFile(node.parent) && !node.parent.isDeclarationFile && ts.isCallExpression(node.expression) && isOnCall(ts, checker, node.expression);
-}
-
-/**
- * A standard-library function tagged `@topLevelOnce` (`autoMining()` of "trigscript/workers") turns something on for the
- * whole game: it is called by name, once, as a statement of its own at the top of a script. The errors for every other
- * reference to one, and for a call that repeats one before it.
- */
-export function topLevelOnceErrors(ts: typeof TS, checker: TS.TypeChecker, files: readonly TS.SourceFile[]): PlanError[] {
-  const errors: PlanError[] = [];
-  const called = new Set<TS.Declaration>();
-  const visit = (node: TS.Node) => {
-    if (ts.isIdentifier(node) && !ts.isImportSpecifier(node.parent) && !ts.isExportSpecifier(node.parent)) {
-      const decl = declarationOf(ts, checker, node);
-      if (decl && ts.isFunctionDeclaration(decl) && decl.name && decl.name !== node && decl.getSourceFile().fileName.startsWith(`${STDLIB_DIR}/`) && ts.getJSDocTags(decl).some((t) => t.tagName.text === "topLevelOnce")) {
-        // `workers.autoMining()` through a namespace import is the call too.
-        const callee = ts.isPropertyAccessExpression(node.parent) && node.parent.name === node ? node.parent : node;
-        const call = callee.parent;
-        if (!ts.isCallExpression(call) || call.expression !== callee || !ts.isExpressionStatement(call.parent) || !ts.isSourceFile(call.parent.parent)) errors.push({ node, message: `${decl.name.text}() turns on for the whole game, so it is called by its name, as a statement of its own at the top of a script — not inside program(), a listener, a trigger or a function, and not kept or passed as a value.` });
-        else if (called.has(decl)) errors.push({ node, message: `${decl.name.text}() is already called above: it is on for the whole game after one call.` });
-        else called.add(decl);
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  for (const sf of files) visit(sf);
-  return errors;
 }
 
 /** The plan for a listener at the top of a file (`isTopListener`), made as a program's is. */

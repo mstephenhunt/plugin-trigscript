@@ -2,7 +2,7 @@
  * The standard library (TrigScript 4): modules of TrigScript shipped with the compiler and imported as
  * "trigscript/<name>" — fog first. What joins a script's files and when, the location a library reserves, and what the
  * fog's functions compile to: a picture's brushes, read back out of the IR, light the picture's tiles. Workers'
- * autoMining(), and where it may be called.
+ * autoMining().
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -289,9 +289,6 @@ program(async () => { const hs: number[] = [80]; const sh: number[] = [1]; while
 
 describe("trigscript/workers", () => {
   const IMPORTED = `import { autoMining } from "trigscript/workers";\n`;
-  const ANYWHERE_ELSE = "autoMining() turns on for the whole game, so it is called by its name, as a statement of its own at the top of a script — not inside program(), a listener, a trigger or a function, and not kept or passed as a value.";
-  const AGAIN = "autoMining() is already called above: it is on for the whole game after one call.";
-  const messages = (main: string) => compile(main).diagnostics.map((d) => `${d.file}:${d.line}: ${d.message}`);
 
   it("autoMining() at the top of a script is the library's program: a listener for new orders that gives the gather order", () => {
     const r = ok(`${IMPORTED}autoMining();`);
@@ -310,29 +307,15 @@ describe("trigscript/workers", () => {
     expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts", "main.ts", "main.ts"]);
   });
 
-  it("is refused anywhere but a statement of its own at the top of a script", () => {
-    expect(messages(`${IMPORTED}program(async () => { autoMining(); });`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-    expect(messages(`${IMPORTED}on.died((u) => { autoMining(); });`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-    expect(messages(`${IMPORTED}function begin() { autoMining(); }\nbegin();`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-    expect(messages(`${IMPORTED}if (true) autoMining();`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-  });
-
-  it("is refused under another name: an alias is refused where it is made", () => {
-    expect(messages(`${IMPORTED}const f = autoMining;\nf();\nf();`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-    expect(messages(`${IMPORTED}const f = autoMining;\nprogram(async () => { f(); });`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-    expect(messages(`${IMPORTED}program(autoMining);`)).toEqual([`main.ts:2: ${ANYWHERE_ELSE}`]);
-  });
-
-  it("is a plain call at the top of a script, however it is imported", () => {
-    expect(messages(`${IMPORTED}autoMining();`)).toEqual([]);
-    expect(messages(`import { autoMining as go } from "trigscript/workers";\ngo();`)).toEqual([]);
-    expect(messages(`import * as workers from "trigscript/workers";\nworkers.autoMining();`)).toEqual([]);
-    expect(messages(`import { autoMining as go } from "trigscript/workers";\ngo();\ngo();`)).toEqual([`main.ts:3: ${AGAIN}`]);
-  });
-
-  it("is refused a second time, in the same file or another", () => {
-    expect(messages(`${IMPORTED}autoMining();\nautoMining();`)).toEqual([`main.ts:3: ${AGAIN}`]);
+  it("called again, in the same file or another, it adds nothing", () => {
+    expect(ok(`${IMPORTED}autoMining();\nautoMining();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
     const r = compileScript(ts, { "main.ts": `${IMPORTED}import "./more";\nautoMining();`, "more.ts": `${IMPORTED}autoMining();` }, NAMES, { lib: LIB });
-    expect(r.diagnostics.map((d) => d.message)).toEqual([AGAIN]);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
+  });
+
+  it("is on again in the next build", () => {
+    ok(`${IMPORTED}autoMining();`);
+    expect(ok(`${IMPORTED}autoMining();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
   });
 });

@@ -20,7 +20,7 @@ import type { TriggerRecord } from "../vendor/triggers";
 import { MODULE_NAME } from "./api";
 import { isTestFile, listTests, runTests, TestRegistry, TESTING_NAMES, type TestReport, type TestRunOptions } from "./testing";
 import { DECLARATIONS_FILE, generateDeclarations } from "./declarations";
-import { isScriptClass, isScriptFunction, scriptArrow, isTopListener, libraryCallName, libraryName, planClass, planFunction, planListener, planProgram, topLevelOnceErrors, transformer, type ProgramPlan } from "./hoist";
+import { isScriptClass, isScriptFunction, scriptArrow, isTopListener, libraryCallName, libraryName, planClass, planFunction, planListener, planProgram, transformer, type ProgramPlan } from "./hoist";
 import { locate, resolveModule, runModules, STDLIB_DIR, type LinkedFile } from "./link";
 import { isMediaFile, mediaValue } from "./media";
 import { STDLIB, stdlibImports, stdlibPath } from "./stdlib";
@@ -443,7 +443,6 @@ export function compileScript(ts: typeof TS, files: ScriptFiles, names: ScriptNa
     // Outside the programs, a condition or an action is a value: testing one as a boolean is a mistake TypeScript lets pass.
     checkValuesAsBooleans(ts, checker, sf, plans, (node, message) => nodeError(node, message));
   }
-  for (const e of topLevelOnceErrors(ts, checker, fileNames.filter((name) => !isTestFile(name)).map((name) => program.getSourceFile(name)!))) nodeError(e.node, e.message);
   if (diagnostics.length) return result();
   // The plan's errors do not stop the run: a body with a fault still lowers, so every problem shows at once.
   for (const d of diagnostics) planned.add(`${d.file}:${d.line}`);
