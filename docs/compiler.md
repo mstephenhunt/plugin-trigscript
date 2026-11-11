@@ -23,7 +23,11 @@ table.
 `compiler.ts` builds a real `ts.createProgram` over the files, the declarations and the
 standard library (in-memory host; `module: commonjs`, `moduleResolution: bundler`),
 collects every reference to the map's tables while the checker is there (so a rename can
-follow them even when they no longer type-check), and stops at the first type error. It
+follow them even when they no longer type-check), and stops at the first type error. A
+standard-library function whose JSDoc carries `@topLevelOnce` (`autoMining()` of
+`trigscript/workers`) is held to one call by its name, a statement of its own at the top
+of a file; any other reference to it, an alias included, is an error there
+(`topLevelOnceErrors` in `hoist.ts`). It
 then plans every `program()` body and every `game()` arrow (`hoist.ts`): the *game
 bindings* are the body's `let` / `var`, the parameters and the functions declared in it;
 a *hoisted expression* is a maximal subexpression that mentions none of those (and is not
