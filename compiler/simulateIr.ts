@@ -1660,7 +1660,7 @@ export class ProgramSimulation {
   centre(location: number, x: number, y: number, size?: { width: number; height: number }): void { this.game.centre(location, x, y, size); }
 
   private cellKey(c: TableCell): string {
-    return `${c.name}:${c.player ? this.slotOf(c.index) : c.index}${c.key !== undefined ? `:${c.key}` : ""}`;
+    return `${c.name}:${c.player ? this.slotOf(c.index) : c.index}${c.key !== undefined ? `:${c.base.toString(16)}:${c.key}` : ""}`;
   }
 
   /** A cell of the game's tables, in the script's units: what a program wrote, else the caller's answer, else 0. */
