@@ -2,7 +2,7 @@
  * The standard library (TrigScript 4): modules of TrigScript shipped with the compiler and imported as
  * "trigscript/<name>" — fog first. What joins a script's files and when, the location a library reserves, and what the
  * fog's functions compile to: a picture's brushes, read back out of the IR, light the picture's tiles. Workers'
- * autoMining().
+ * buildAutoMiningProgram().
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -288,10 +288,10 @@ program(async () => { const hs: number[] = [80]; const sh: number[] = [1]; while
 });
 
 describe("trigscript/workers", () => {
-  const IMPORTED = `import { autoMining } from "trigscript/workers";\n`;
+  const IMPORTED = `import { buildAutoMiningProgram } from "trigscript/workers";\n`;
 
-  it("autoMining() at the top of a script is the library's program: a listener for new orders that gives the gather order", () => {
-    const r = ok(`${IMPORTED}autoMining();`);
+  it("buildAutoMiningProgram() at the top of a script is the library's program: a listener for new orders that gives the gather order", () => {
+    const r = ok(`${IMPORTED}buildAutoMiningProgram();`);
     expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
     const statements = bodiesOf(r.ir[0]).flatMap((body) => walk(body));
     expect(statements.some((s) => s.kind === "unitLoop" && s.source === "ordered")).toBe(true);
@@ -303,19 +303,19 @@ describe("trigscript/workers", () => {
   });
 
   it("stands beside the script's own on.order() listeners", () => {
-    const r = ok(`${IMPORTED}autoMining();\non.order((u, order) => { if (order == orders.Move) print("moved"); });\nprogram(async () => { on.order((u) => { print("ordered"); }); });`);
+    const r = ok(`${IMPORTED}buildAutoMiningProgram();\non.order((u, order) => { if (order == orders.Move) print("moved"); });\nprogram(async () => { on.order((u) => { print("ordered"); }); });`);
     expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts", "main.ts", "main.ts"]);
   });
 
   it("called again, in the same file or another, it adds nothing", () => {
-    expect(ok(`${IMPORTED}autoMining();\nautoMining();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
-    const r = compileScript(ts, { "main.ts": `${IMPORTED}import "./more";\nautoMining();`, "more.ts": `${IMPORTED}autoMining();` }, NAMES, { lib: LIB });
+    expect(ok(`${IMPORTED}buildAutoMiningProgram();\nbuildAutoMiningProgram();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
+    const r = compileScript(ts, { "main.ts": `${IMPORTED}import "./more";\nbuildAutoMiningProgram();`, "more.ts": `${IMPORTED}buildAutoMiningProgram();` }, NAMES, { lib: LIB });
     expect(r.diagnostics).toEqual([]);
     expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
   });
 
   it("is on again in the next build", () => {
-    ok(`${IMPORTED}autoMining();`);
-    expect(ok(`${IMPORTED}autoMining();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
+    ok(`${IMPORTED}buildAutoMiningProgram();`);
+    expect(ok(`${IMPORTED}buildAutoMiningProgram();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
   });
 });

@@ -1,9 +1,9 @@
 /**
  * Workers that go to work: the standard library's "trigscript/workers" (TrigScript 4).
  *
- *   import { autoMining } from "trigscript/workers";
+ *   import { buildAutoMiningProgram } from "trigscript/workers";
  *
- *   autoMining();   // at the top of the script, once: on for the whole game
+ *   buildAutoMiningProgram();   // at the top of the script, once: on for the whole game
  *
  * With auto-mining on, a human player's new SCV, Probe or Drone whose producer's rally point is on a mineral patch
  * starts mining that patch, instead of walking there and standing. One rallied to the player's own finished gas
@@ -49,14 +49,16 @@ function gatherFromRally(worker: Unit) {
   for (const patch of allUnits({ type: units.MineralFieldType3 })) if (patch.x == x && patch.y == y) { worker.gather(patch); return; }
 }
 
+let programBuilt = false;
+
 /**
- * Turn auto-mining on for the whole game: every human player's new SCV, Probe or Drone rallied to a mineral patch or
- * the player's own finished gas building starts gathering from it. A call after the first adds nothing.
+ * Build the program that turns auto-mining on for the whole game: every human player's new SCV, Probe or Drone rallied
+ * to a mineral patch or the player's own finished gas building starts gathering from it. Called at the top of a
+ * script, as programs are made when the map is built; a call after the first adds nothing.
  */
-let autoMiningOn = false;
-export function autoMining() {
-  if (autoMiningOn) return;
-  autoMiningOn = true;
+export function buildAutoMiningProgram() {
+  if (programBuilt) return;
+  programBuilt = true;
   program(async () => {
     on.order((worker, order, was) => {
       if (worker.type == units.ZergDrone) {
