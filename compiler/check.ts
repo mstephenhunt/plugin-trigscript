@@ -45,6 +45,7 @@ function expressions(body: Stmt[], visit: (e: NumExpr | BoolExpr) => void, pick?
     switch (e.kind) {
       case "unitField": case "unitPart": case "unitAlive": case "unitFlag": unit(e.unit); break;
       case "unitSame": unit(e.left); unit(e.right); break;
+      case "unitDistance": unit(e.from); unit(e.to); break;
       case "unary": case "cast": expr(e.expr); break;
       case "element": expr(e.index); break;
       case "binary": case "compare": expr(e.left); expr(e.right); break;
@@ -300,6 +301,7 @@ function reads(e: NumExpr | BoolExpr, into = new Set<string>()): Set<string> {
     case "input": break;
     case "unitField": case "unitAlive": case "unitFlag": into.add(THE_GAME); unitReads(e.unit, into); break;
     case "unitSame": for (const u of [e.left, e.right]) unitReads(u, into); break;
+    case "unitDistance": into.add(THE_GAME); for (const u of [e.from, e.to]) unitReads(u, into); break;
     case "randomInt": reads(e.bound, into); break;
     case "unary": case "cast": reads(e.expr, into); break;
     case "binary": case "compare": reads(e.left, into); reads(e.right, into); break;

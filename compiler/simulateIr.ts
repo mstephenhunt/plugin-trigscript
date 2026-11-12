@@ -43,7 +43,7 @@ import { emptyAction, ResourceType } from "../vendor/triggers";
 import { GATHER_ORDERS, GATHER_WORKERS, ORDER_OF_VERB } from "./orders";
 import { BUILD_BYTES, ERROR_CODES, HEAP_CELLS, HEAP_SMALLEST, STACK_DEPTH, STACK_OVERFLOW_MESSAGE, TEXT_BYTES, TEXT_FIELD_BYTES, UNIT_FLAGS, eachStart, heapCells, isTextExpr, programDeclarations, stackDepth } from "./ir";
 import type { TextExpr, ArrayDecl, At, BoolExpr, Call, EventSource, NumExpr, Program, ReadSource, Stmt, TableCell, TextPart, UnitExpr, UnitFilter, UnitNumField, UnitVerb, VarDecl } from "./ir";
-import { cellMax } from "./tables";
+import { cellMax, UNIT_DIMENSIONS } from "./tables";
 import { inputsOf, keyName, matchChat, parseChatPattern, type ChatPattern, type InputSource, type MouseButton } from "./input";
 import { Simulation, type SimulationOptions } from "./simulate";
 import { TABLE_FIELDS } from "./tables";
@@ -612,6 +612,22 @@ class ProgramRun {
       }
       case "read": return this.sim.read(e.read) | 0;
       case "unitField": { const u = yield* this.living(e.unit); return u ? u[e.field] | 0 : 0; }
+      case "unitDistance": {
+        const a = yield* this.living(e.from), b = yield* this.living(e.to);
+        if (!a || !b) return 0;
+        // Each unit's box from its type's dimensions (left, up, right, down), as the game's unit_sprite_bounding_box has it.
+        const box = (u: SimUnit) => {
+          const side = (key: number) => this.sim.tableRead({ name: "unit.dimensions", base: UNIT_DIMENSIONS, stride: 8, index: u.type, key, width: 2 });
+          return { left: u.x - side(0), top: u.y - side(2), right: u.x + side(4) + 1, bottom: u.y + side(6) + 1 };
+        };
+        const p = box(a), q = box(b);
+        const gap = (from1: number, to1: number, from2: number, to2: number) => (from1 > to2 ? from1 - to2 : from2 > to1 ? from2 - to1 : 0);
+        let x = gap(p.left, p.right, q.left, q.right), y = gap(p.top, p.bottom, q.top, q.bottom);
+        if (x < y) [x, y] = [y, x];
+        // The game's xy_length: the longer side, with a share of the shorter added once they are far enough from a line.
+        if (Math.floor(x / 4) < y) x = x - Math.floor(x / 16) + Math.floor((y * 3) / 8) - Math.floor(x / 64) + Math.floor((y * 3) / 256);
+        return x | 0;
+      }
       case "unitPart": { const u = yield* this.unit(e.unit); return u ? (e.part === "uid" ? u.uid : u.slot + 1) : 0; }
       case "tableRead": return this.sim.tableRead(e.cell) | 0;
       case "input": return this.sim.input(e.input) | 0;

@@ -103,6 +103,9 @@ export const TABLE_FIELDS: Record<TableKind, TableField[]> = {
   ],
 };
 
+/** units.dat's dimensions: four words a type, how far its box reaches left, up, right and down of its centre. What the game measures a range between. */
+export const UNIT_DIMENSIONS = 0x6617c8;
+
 /** The palette entries the game's player colours are, by the word a script may write. */
 export const PLAYER_COLORS: Record<string, number> = { red: 111, blue: 165, teal: 159, purple: 164, orange: 179, brown: 19, white: 255, yellow: 135, green: 117 };
 /** The minimap's entry for a colour is this far from the units' in the player tables. */

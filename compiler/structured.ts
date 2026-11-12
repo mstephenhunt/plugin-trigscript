@@ -11129,6 +11129,13 @@ export class Structured {
       this.task(e, { decl: v, kind: "number" });
       return varRef(v);
     }
+    // `a.distanceTo(b)`: how far apart two units are, as the game measures a range.
+    if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === "distanceTo" && this.isUnitTyped(e.expression.expression)) {
+      const other = e.arguments[0];
+      if (!other || e.arguments.length > 1 || !this.isUnitTyped(other)) { this.c.error(e, "distanceTo() takes the other unit: a.distanceTo(b)."); return null; }
+      const from = this.unitExpr(e.expression.expression), to = this.unitExpr(other);
+      return from && to ? this.mark<NumExpr>({ kind: "unitDistance", from, to, at: this.at(e), label: this.label(e) }, e) : null;
+    }
     const h = this.evaluate(expr);
     // No function: `let f: (() => void) | undefined = undefined`; no instance (B9): `let next: Node | null = null`.
     if (h && (h.value === undefined || h.value === null) && this.noFunction(expr)) return num(0);

@@ -221,6 +221,11 @@ ${kw}interface Unit {
    * on it does. Anything else, either way round, is left as it is.
    */
   gather(target: Unit): void;
+  /**
+   * How far apart two units are, in pixels, as the game measures a weapon's or a spell's range: from the edge of one's
+   * box to the edge of the other's (0 when they touch). 0 when either is gone.
+   */
+  distanceTo(other: Unit): number;
 }
 /** Which units a loop or a pick looks at; a part left out matches all. units.Men, units.Buildings and units.Factories work as a type. */
 ${kw}interface UnitFilter {

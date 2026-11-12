@@ -226,6 +226,7 @@ export function inputsOf(programs: Program[]): { sources: InputSource[]; mouse: 
       case "input": sources.push(e.input); at ??= e.at; if (e.input.source === "mouse") mouse = true; break;
       case "unitField": case "unitPart": case "unitAlive": case "unitFlag": unit(e.unit); break;
       case "unitSame": unit(e.left); unit(e.right); break;
+      case "unitDistance": unit(e.from); unit(e.to); break;
       case "unary": case "cast": expr(e.expr); break;
       case "element": expr(e.index); break;
       case "binary": case "compare": expr(e.left); expr(e.right); break;

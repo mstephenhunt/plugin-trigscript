@@ -327,6 +327,8 @@ export type NumExpr =
   | { kind: "randomInt"; bound: NumExpr; at: At; label: string }
   /** A number of a unit on the map; 0 when the unit is none or gone. */
   | { kind: "unitField"; unit: UnitExpr; field: UnitNumField; at: At; label: string }
+  /** How far apart two units are, in pixels, as the game measures a weapon's or a spell's range: between the edges of their boxes. 0 when either is none or gone. */
+  | { kind: "unitDistance"; from: UnitExpr; to: UnitExpr; at: At; label: string }
   /** A cell of the game's tables, unscaled: a flag reads 1 or 0. */
   | { kind: "tableRead"; cell: TableCell; at: At; label: string }
   /** What a player did, as it reached every computer (`input.ts`): a key or a click reads 1 on its frame, the mouse its place on the map, a typed line 1 or a value it carried. */
@@ -794,7 +796,7 @@ export const isNumExpr = (e: NumExpr | BoolExpr | UnitExpr | TextExpr): e is Num
     case "var": return false; // ambiguous by shape; callers know the variable's kind
     case "element": case "pop": return false; // ambiguous by shape, as a variable is
     case "length": case "unitPart": return true;
-    case "unary": case "cast": case "binary": case "intrinsic": case "read": case "randomInt": case "unitField": case "tableRead": case "input": case "taskHandle": return true;
+    case "unary": case "cast": case "binary": case "intrinsic": case "read": case "randomInt": case "unitField": case "unitDistance": case "tableRead": case "input": case "taskHandle": return true;
     case "ternary": return isNumExpr(e.whenTrue);
     case "call": return e.call.result?.kind === "number";
     default: return false;
@@ -867,6 +869,7 @@ export function declarations(body: Stmt[]): VarDecl[] {
   const expr = (e: NumExpr) => {
     switch (e.kind) {
       case "unitField": case "unitPart": unit(e.unit); break;
+      case "unitDistance": unit(e.from); unit(e.to); break;
       case "element": expr(e.index); break;
       case "unary": case "cast": expr(e.expr); break;
       case "binary": expr(e.left); expr(e.right); break;

@@ -173,7 +173,7 @@ export function typeNumbers(program: Program): ProgramDiagnostic[] {
       case "var": return !!decls.get(e.id)?.bits || never.has(e.id);
       case "element": case "pop": return !!arrays.get(e.array)?.bits || never.has(e.array);
       case "length": case "textLength": case "taskHandle": return true;
-      case "read": case "unitField": case "tableRead": case "input": case "randomInt": return true;
+      case "read": case "unitField": case "unitDistance": case "tableRead": case "input": case "randomInt": return true;
       case "ternary": return nonNegative(e.whenTrue) && nonNegative(e.whenFalse);
       case "intrinsic": return e.unsigned ? false : e.name === "min" ? e.args.every(nonNegative) : e.name === "max" ? e.args.some(nonNegative) : e.name === "sqrt";
       case "binary":
@@ -260,6 +260,7 @@ export function typeNumbers(program: Program): ProgramDiagnostic[] {
       case "randomInt": e.bound = floor(e.bound, e.at); return [e, "i32"];
       case "taskHandle": return [e, "i32"];
       case "unitField": unit(e.unit); return [e, "i32"];
+      case "unitDistance": unit(e.from); unit(e.to); return [e, "i32"];
       // A part of a unit is bits to keep, never a number to reckon with: read from 0 up, so nothing clamps or biases it.
       case "unitPart": unit(e.unit); return [e, "u32"];
       case "ternary": {

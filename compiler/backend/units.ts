@@ -20,6 +20,7 @@
 import type { ArrayDecl, At, BoolExpr, Call, CompareOp, FuncDecl, NumExpr, Program, Stmt, UnitExpr, UnitFilter, UnitFlag, UnitNumField, VarDecl } from "../ir";
 import type { ActionRecord, ConditionRecord } from "../../vendor/triggers";
 import { GATHER_ORDERS, GATHER_WORKERS } from "../orders";
+import { UNIT_DIMENSIONS } from "../tables";
 import { STATEMENT_KINDS } from "./emit";
 import { MOUSE_CELLS } from "./input";
 
@@ -33,7 +34,7 @@ const CURRENT = epd(0x6509b0);
 /** The game's locations: 20 bytes each, from 1. */
 const MRGN = epd(0x58dc60);
 /** units.dat: hit points (a dword a type, 256 to a point), shields (a word a type), the group flags (a byte a type). */
-const MAX_HP = epd(0x662350), MAX_SHIELDS = epd(0x660e00), GROUPS = epd(0x6637a0);
+const MAX_HP = epd(0x662350), MAX_SHIELDS = epd(0x660e00), GROUPS = epd(0x6637a0), DIMENSIONS = epd(UNIT_DIMENSIONS);
 /**
  * A filter's type that is one type, asked of a unit's type word (16 bits): the game's 0–227, and a data set's past the
  * classes (a mod's units from 233 on). 228 is the game's None and 229–232 the trigger's classes.
@@ -735,6 +736,45 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     return all([alive(u), cmp("==", peek(of(u.e, STATUS), mask), k(mask))]);
   };
 
+  /**
+   * How far apart two units are as the game measures a range (`units_distance`): the gap between their boxes, each its
+   * type's dimensions around its centre, along x and along y, made one length by the game's `xy_length`. 0 when either
+   * is none or gone.
+   */
+  const distance = (a0: Unit, b0: Unit, pre: Stmt[]): NumExpr => {
+    if (isNone(a0) || isNone(b0)) return k(0);
+    const a = held(a0, pre), b = held(b0, pre);
+    const t = fresh("d"), body: Stmt[] = [];
+    // (Every side 256 to the right of where it is, so that none of them is below zero.)
+    const box = (u: Unit) => {
+      const [x, y, ty, left, up, right, down] = ["x", "y", "ty", "l", "u", "r", "b"].map((what) => fresh(what));
+      body.push(...[x, y, ty, left, up, right, down].map((id) => dec(id, k(0), 0xffff)));
+      body.push(...through(of(u.e, POSITION), (h) => [set(x, h(X.mask, X.shift)), set(y, h(Y.mask, Y.shift))]), ...readInto(ty, u.e, TYPE));
+      const at_ = bin("+", k(DIMENSIONS), bin("*", ranged(V(ty), 0, 0xffff), k(2)));
+      body.push(...through(at_, (h) => [set(left, h(0xffff)), set(up, h(0xffff0000, 16))]), ...through(bin("+", at_, k(1)), (h) => [set(right, h(0xffff)), set(down, h(0xffff0000, 16))]));
+      const w = (id: string) => ranged(V(id), 0, 0xffff);
+      return { left: bin("-", bin("+", w(x), k(256)), w(left)), top: bin("-", bin("+", w(y), k(256)), w(up)), right: bin("+", bin("+", w(x), w(right)), k(257)), bottom: bin("+", bin("+", w(y), w(down)), k(257)) };
+    };
+    const p = box(a), q = box(b);
+    const gap = (id: string, from1: NumExpr, to1: NumExpr, from2: NumExpr, to2: NumExpr): Stmt[] => {
+      const s = [fresh("s1"), fresh("e1"), fresh("s2"), fresh("e2")];
+      const [f1, t1, f2, t2] = s.map((v) => ranged(V(v), 0, 0x20000));
+      return [dec(s[0], from1, 0x20000), dec(s[1], to1, 0x20000), dec(s[2], from2, 0x20000), dec(s[3], to2, 0x20000), dec(id, k(0), 0x20000),
+        ...when(cmp(">", f1, t2), [set(id, bin("-", f1, t2))], when(cmp(">", f2, t1), [set(id, bin("-", f2, t1))]))];
+    };
+    const longer = fresh("dl"), shorter = fresh("ds"), swap = fresh("dt");
+    body.push(...gap(longer, p.left, p.right, q.left, q.right), ...gap(shorter, p.top, p.bottom, q.top, q.bottom));
+    const x = ranged(V(longer), 0, 0x20000), y = ranged(V(shorter), 0, 0x20000);
+    // The longer side first, then the game's xy_length: a share of the shorter added once the two are far enough from a line.
+    body.push(...when(cmp("<", x, y), [dec(swap, x, 0x20000), set(longer, y), set(shorter, ranged(V(swap), 0, 0x20000))]));
+    const y3 = bin("*", y, k(3));
+    body.push(set(t, x), ...when(cmp("<", bin(">>>", x, k(2)), y), [
+      set(t, bin("+", bin("-", bin("+", bin("-", x, bin(">>>", x, k(4))), bin(">>>", y3, k(3))), bin(">>>", x, k(6))), bin(">>>", y3, k(8)))),
+    ]));
+    pre.push(dec(t, k(0), 0x20000), ...when(all([present(a), present(b)]), body));
+    return ranged(V(t), 0, 0x20000);
+  };
+
   /** The order Die: what kills a unit, as eudplib's `CUnit.die()`. */
   const die = (e: NumExpr): Stmt => poke(of(e, ORDER.dword), k(0), ORDER.mask);
 
@@ -1008,6 +1048,7 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
       case "unitAlive": return alive(held(unit((o as { unit: UnitExpr }).unit, pre), pre));
       case "unitFlag": { const e = o as unknown as Extract<BoolExpr, { kind: "unitFlag" }>; return flag(unit(e.unit, pre), e.flag, pre); }
       case "unitSame": { const e = o as unknown as Extract<BoolExpr, { kind: "unitSame" }>; return same(unit(e.left, pre), unit(e.right, pre), pre); }
+      case "unitDistance": { const e = o as unknown as Extract<NumExpr, { kind: "unitDistance" }>; return distance(unit(e.from, pre), unit(e.to, pre), pre); }
       case "selected": {
         // `local.selected` (step 12): the unit in a slot of this computer's selection, re-checked before use as a kept
         // unit is (its uniqueness byte taken when read). The slot holds a pointer, or 0 for none.

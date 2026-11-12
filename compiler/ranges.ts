@@ -235,6 +235,7 @@ export function rangeNumbers(program: Program): void {
       case "read": return ANY;
       case "randomInt": { const b = num(e.bound, facts); return nonNeg(b) ? [0, Math.max(0, b[1] - 1)] : ANY; }
       case "unitField": unit(e.unit, facts); return UNIT_FIELD[e.field] ?? ANY;
+      case "unitDistance": unit(e.from, facts); unit(e.to, facts); return [0, 65535];
       case "tableRead": return ANY;
       case "input": return ANY;
       case "ternary": bool(e.cond, facts); return join(num(e.whenTrue, withFacts(facts, e.cond, true)), num(e.whenFalse, withFacts(facts, e.cond, false)))!;
@@ -605,6 +606,7 @@ function pure(e: NumExpr): boolean {
   switch (e.kind) {
     case "const": case "var": case "length": case "read": case "taskHandle": return true;
     case "unitField": case "unitPart": return e.unit.kind === "unitVar" || e.unit.kind === "unitNull";
+    case "unitDistance": return [e.from, e.to].every((u) => u.kind === "unitVar" || u.kind === "unitNull");
     case "element": return pure(e.index);
     case "unary": case "cast": return pure(e.expr);
     case "binary": return pure(e.left) && pure(e.right);

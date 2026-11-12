@@ -6,7 +6,7 @@
 // lifted game, for fewer loops.
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { ArrayDecl, BoolExpr, Call, FuncDecl, NumExpr, Stmt, TextPart, VarDecl } from "../compiler/ir";
+import type { ArrayDecl, BoolExpr, Call, FuncDecl, NumExpr, Stmt, TableCell, TextPart, VarDecl } from "../compiler/ir";
 import { emitBody, emitterCounts } from "../compiler/backend/emit";
 import type { ConditionRecord } from "../vendor/triggers";
 import { END, SWITCHES, TRIGGER_BYTES, type Dword, type Graph, type Num } from "../compiler/backend/graph";
@@ -1457,6 +1457,8 @@ describe("a map of our own, units", () => {
   /** The groups a trigger's unit classes go by, as units.dat has them for the types these tests use (Men, Buildings, Factories). */
   const GROUPS: Record<number, number> = { 0: 0x08, 1: 0x08, 34: 0x08, 37: 0x08, 106: 0x30, 109: 0x10 };
   const MAX_HP: Record<number, number> = { 0: 40, 1: 45, 34: 60, 37: 35, 106: 1500, 109: 500 };
+  /** units.dat's dimensions (left, up, right, down) of the types whose distances these tests measure: a Marine's and a Medic's. */
+  const DIMENSIONS: Record<number, number[]> = { 0: [8, 9, 8, 10], 34: [8, 9, 8, 10] };
   /**
    * The units laid out where the game keeps them, in the places it hands out first — place 0, then 1 699 down — and the
    * tables a unit's numbers come from; the simulator's world holds the same units, made in the same order.
@@ -1495,6 +1497,7 @@ describe("a map of our own, units", () => {
     });
     for (const [type, hp] of Object.entries(MAX_HP)) put(0x662350 + 4 * Number(type), hp * 256);
     for (const [type, g] of Object.entries(GROUPS)) put(0x6637a0 + Number(type), g, 1);
+    for (const [type, sides] of Object.entries(DIMENSIONS)) sides.forEach((side, i) => put(0x6617c8 + 8 * Number(type) + 2 * i, side, 2));
     for (const [n, b] of Object.entries(locations)) {
       const at = 0x58dc60 + 20 * (Number(n) - 1);
       [b.left, b.top, b.right, b.bottom].forEach((v, i) => put(at + 4 * i, v));
@@ -1509,7 +1512,8 @@ describe("a map of our own, units", () => {
     const full = units.map((u) => ({ hp: MAX_HP[u.type], maxHp: MAX_HP[u.type], orderId: 3, ...u }));
     const world = new Simulation([], { units: full, locations, strings: r.strings, unitClass: (type, cls) => cls === 229 || ((GROUPS[type] ?? 0) & ({ 230: 0x08, 231: 0x10, 232: 0x20 }[cls] ?? 0)) !== 0 });
     // (The texts shown: a unit killed is an event of its own, with a text that says which.)
-    const want = simulatePrograms(r.ir, 1, { world, strings: r.strings }).events.filter((e) => e.text !== undefined && e.action.type === 9).map((e) => hex(e.text!));
+    const table = (c: TableCell) => (c.name === "unit.dimensions" ? DIMENSIONS[c.index]?.[(c.key ?? 0) / 2] : undefined);
+    const want = simulatePrograms(r.ir, 1, { world, strings: r.strings, table }).events.filter((e) => e.text !== undefined && e.action.type === 9).map((e) => hex(e.text!));
     const o = emitOwn(r);
     if (typeof o === "string") throw new Error(o);
     PRINTED.got = [];
@@ -1678,6 +1682,26 @@ describe("a map of our own, units", () => {
       { type: 34, owner: 0, x: 120, y: 100, orderId: 176, orderState: 2, queuedOrders: 1 },
       { type: 0, owner: 1, x: 140, y: 100, acidSpores: 9 },
     ]);
+  });
+
+  it("measures how far apart two units are as the game measures a range: between their boxes", () => {
+    const units: SimUnitInit[] = [
+      { type: 34, owner: 0, x: 400, y: 300 },
+      { type: 0, owner: 0, x: 600, y: 300 },
+      { type: 0, owner: 0, x: 612, y: 300 },
+      { type: 0, owner: 0, x: 500, y: 400 },
+      { type: 0, owner: 0, x: 405, y: 305 },
+    ];
+    const r = both([
+      "  const medic = first({ type: units.TerranMedic })!;",
+      "  let within = 0;",
+      "  for (const t of allUnits({ type: units.TerranMarine })) { print(`${medic.distanceTo(t)}`); if (medic.distanceTo(t) <= 192) within += 1; }",
+      "  print(`${within}`);",
+    ].join("\n"), units);
+    // 183 and 195 across (centres 200 and 212 apart, each box 8 wide either side); 83 by 80 is the game's 107; overlapping is 0.
+    const want = ["183", "195", "107", "0", "3"].map((text) => shown([...new TextEncoder().encode(text)]));
+    expect(r.want).toEqual(want);
+    expect(r.got).toEqual(want);
   });
 
   it("reads whether one player has another as an ally, one way", () => {

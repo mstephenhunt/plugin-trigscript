@@ -295,6 +295,7 @@ Numbers (`NumExpr`):
 | `read` | `read` — a value of the game, taken when the expression is evaluated (below) |
 | `randomInt` | `bound` — a whole number from 0 to `bound` − 1, fresh at every evaluation; 0 when `bound` is 0 |
 | `unitField` | `unit`, `field` — a number of a unit; 0 when the unit is none or gone |
+| `unitDistance` | `from`, `to` — how far apart two units are as the game measures a range: the gaps between their boxes (each its type's dimensions in units.dat around its centre) along x and y, made one length by the game's `xy_length`; 0 when either is none or gone |
 | `tableRead` | `cell` — a cell of the game's tables in the script's units (stored ÷ `scale`, rounded down); a flag reads 1 or 0 |
 | `input` | `input` — what a player did, as it reached every computer (below): a key, a click and a typed line read 1 on their frame, the mouse its place on the map |
 | `ternary` | `cond`, `whenTrue`, `whenFalse` |

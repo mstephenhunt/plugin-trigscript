@@ -264,6 +264,10 @@ export function settleRecursion(program: Program): ProgramDiagnostic[] {
           const [left, right] = operands([{ e: e.left, kind: "unit" }, { e: e.right, kind: "unit" }], pre, w) as UnitExpr[];
           return { ...e, left, right };
         }
+        case "unitDistance": {
+          const [from, to] = operands([{ e: e.from, kind: "unit" }, { e: e.to, kind: "unit" }], pre, w) as UnitExpr[];
+          return { ...e, from, to };
+        }
         case "intrinsic": return { ...e, args: operands(e.args.map((a) => ({ e: a, kind: "number" as const })), pre, w) as NumExpr[] };
         case "unitOrderTarget": return { ...e, unit: one(e.unit, "unit") as UnitExpr };
         case "unitAt": {
