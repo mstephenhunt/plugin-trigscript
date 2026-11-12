@@ -150,6 +150,14 @@ ${kw}interface Unit {
   /** Where the order is aimed, in pixels: where a Move goes, or the target unit's centre. */
   readonly orderTargetX: number;
   readonly orderTargetY: number;
+  /** How far the unit has got with its order, 0 … 255: 0 as an order starts. What each number means is the order's own. */
+  readonly orderState: number;
+  /**
+   * How many orders wait behind the one it is doing: what a shift-click adds, and what the game queues for itself (an
+   * attack-moving or patrolling Medic that stops to heal has its attack-move or patrol waiting). Orders the game shows no
+   * button for are not counted.
+   */
+  readonly queuedOrders: number;
   /** Frames until the unit can attack or cast again, 0 … 255; writing it holds the unit's fire that long (the ground weapon's, the air weapon's and the spells' alike). */
   cooldown: number;
   /**
@@ -174,6 +182,10 @@ ${kw}interface Unit {
   maelstrom: number;
   irradiate: number;
   stasis: number;
+  /** Acid spores on the unit, 0 … 9: each Devourer hit adds one, and they wear off one by one. Read only. */
+  readonly acidSpores: number;
+  /** Whether the unit is blinded by Optical Flare, which only a Medic's Restoration cures. Read only. */
+  readonly opticalFlare: boolean;
   /** Whether the unit cannot be hurt. */
   invincible: boolean;
   /** Whether the unit is a hallucination: made so, it takes double damage and dies after a while, as a Templar's do. */

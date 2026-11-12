@@ -1455,8 +1455,8 @@ describe("a map of our own, functions that call themselves", () => {
 describe("a map of our own, units", () => {
   const TABLE = 0x59cca8;
   /** The groups a trigger's unit classes go by, as units.dat has them for the types these tests use (Men, Buildings, Factories). */
-  const GROUPS: Record<number, number> = { 0: 0x08, 1: 0x08, 37: 0x08, 106: 0x30, 109: 0x10 };
-  const MAX_HP: Record<number, number> = { 0: 40, 1: 45, 37: 35, 106: 1500, 109: 500 };
+  const GROUPS: Record<number, number> = { 0: 0x08, 1: 0x08, 34: 0x08, 37: 0x08, 106: 0x30, 109: 0x10 };
+  const MAX_HP: Record<number, number> = { 0: 40, 1: 45, 34: 60, 37: 35, 106: 1500, 109: 500 };
   /**
    * The units laid out where the game keeps them, in the places it hands out first — place 0, then 1 699 down — and the
    * tables a unit's numbers come from; the simulator's world holds the same units, made in the same order.
@@ -1487,6 +1487,10 @@ describe("a map of our own, units", () => {
       if (u.underAttack) put(at + 0x87, 12, 1);
       put(at + 0xac, u.buildTime ?? 0, 2);
       put(at + 0x114, u.matrix ?? 0, 1);
+      put(at + 0x4e, u.orderState ?? 0, 1);
+      put(at + 0x84, u.queuedOrders ?? 0, 1);
+      put(at + 0x123, u.opticalFlare ? 1 : 0, 1);
+      put(at + 0x126, u.acidSpores ?? 0, 1);
       put(at + 0xdc, (u.invincible ? 0x04000000 : 0) | (u.hallucinated ? 0x40000000 : 0) | (u.speedUpgrade ? 0x10000000 : 0) | (u.inTransport ? 0x40 : 0) | (u.burrowed ? 0x10 : 0));
     });
     for (const [type, hp] of Object.entries(MAX_HP)) put(0x662350 + 4 * Number(type), hp * 256);
@@ -1664,6 +1668,28 @@ describe("a map of our own, units", () => {
       runOwn(o.runs[0].graph, memory, o.values);
       expect(PRINTED.got).toEqual(["aimed at 400", "none"].map((text) => shown([...new TextEncoder().encode(text)])));
     });
+  });
+
+  it("reads Optical Flare, acid spores, the order's state and the orders queued where the game keeps them", () => {
+    same([
+      "  for (const u of allUnits({})) print(`${u.opticalFlare} ${u.acidSpores} ${u.orderState} ${u.queuedOrders}`);",
+    ].join("\n"), [
+      { type: 0, owner: 0, x: 100, y: 100, opticalFlare: true, acidSpores: 3, orderState: 1, queuedOrders: 0 },
+      { type: 34, owner: 0, x: 120, y: 100, orderId: 176, orderState: 2, queuedOrders: 1 },
+      { type: 0, owner: 1, x: 140, y: 100, acidSpores: 9 },
+    ]);
+  });
+
+  it("reads whether one player has another as an ally, one way", () => {
+    const r = compileScript(ts, { "main.ts": "program(() => {\n  print(`${stats(P1).allied[P2]} ${stats(P1).allied[P3]} ${stats(P1).allied[P4]} ${stats(P2).allied[P1]}`);\n});\n" }, defaultScriptNames(), { lib: defaultLib() });
+    expect(r.diagnostics).toEqual([]);
+    const o = emitOwn(r);
+    if (typeof o === "string") throw new Error(o);
+    // The alliance table, a byte a pair: P1's row is itself (1), P2 allied (1), P3 allied for victory (2), P4 enemy (0); P2's row has P1 as an enemy.
+    const memory = new Map<number, number>([[0x58d634, 0x00020101], [0x58d640, 0]]);
+    PRINTED.got = [];
+    runOwn(o.runs[0].graph, memory, o.values);
+    expect(PRINTED.got).toEqual([shown([...new TextEncoder().encode("true true false false")])]);
   });
 
   it("reads a location's bounds and moves one edge at a time", () => {

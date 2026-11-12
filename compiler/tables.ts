@@ -98,6 +98,7 @@ export const TABLE_FIELDS: Record<TableKind, TableField[]> = {
   player: [
     { name: "color", doc: "The colour the player's units and minimap dots are drawn in: one of colors.*, or \"teal\". Takes effect at once.", base: 0x581d76, stride: 1, width: 1, writeOnly: true, special: "color", type: "PlayerColor | ColorName" },
     { name: "upgrades", doc: "The player's level of each upgrade: stats(P1).upgrades[upgrades.TerranInfantryWeapons] = 3.", base: 0x58d2b0, stride: 46, width: 1, keyed: { kind: "upgrade", type: "Upgrade", broodWar: { from: 46, base: 0x58f32c, stride: 15 } } },
+    { name: "allied", doc: "Whether the player has set another player as an ally, as Set Alliance Status does: stats(P1).allied[P2]. It goes one way: P2 may not have P1. Read only.", base: 0x58d634, stride: 12, width: 1, boolean: true, readonly: true, keyed: { kind: "player", type: "Player" } },
     { name: "researched", doc: "Whether the player has each technology: stats(P1).researched[techs.Lockdown] = true.", base: 0x58cf44, stride: 24, width: 1, boolean: true, keyed: { kind: "tech", type: "Tech", broodWar: { from: 24, base: 0x58f140, stride: 20 } } },
   ],
 };

@@ -48,7 +48,7 @@ const UNIT_FIELD: Record<string, Range> = {
   hp: [0, 16777216], maxHp: [0, 16777215], shields: [0, 16777215], maxShields: [0, 65535], energy: [0, 255],
   owner: [0, 255], type: [0, 65535], x: [0, 65535], y: [0, 65535], kills: [0, 255], orderId: [0, 255], cooldown: [0, 255],
   resources: [0, 65535], stim: [0, 65535], ensnare: [0, 65535], plague: [0, 65535], lockdown: [0, 65535], maelstrom: [0, 65535],
-  irradiate: [0, 65535], stasis: [0, 65535],
+  irradiate: [0, 65535], stasis: [0, 65535], acidSpores: [0, 255], orderState: [0, 255], queuedOrders: [0, 255],
 };
 
 const STMT_KINDS = new Set(["declare", "assignText", "storeText", "releaseText", "textLoop", "assign", "declareArray", "store", "push", "pop", "setLength",

@@ -318,7 +318,7 @@ Booleans (`BoolExpr`):
 | `unitAlive` | `unit` — `if (target)`: there is a unit and it is still on the map |
 | `running` | `task` (a number) — `t.running`: the task that number stands for has not ended or been cancelled |
 | `unitSame` | `left`, `right` — both name one unit of the game (none is never the same as anything) |
-| `unitFlag` | `unit`, `flag: hallucinated | cloaked | burrowed | invincible | underAttack`; false when the unit is none or gone |
+| `unitFlag` | `unit`, `flag: hallucinated | cloaked | burrowed | invincible | underAttack | speedUpgrade | hasTarget | inTransport | opticalFlare`; false when the unit is none or gone |
 | `edge` | `edge: rose | once`, `cond` |
 | `ternary` | `cond`, `whenTrue`, `whenFalse` |
 | `call` | `call` (its boolean result) |
@@ -663,8 +663,8 @@ flags, as a trigger counts them); `owner` a slot or 13; `at` a 1-based location 
 holds the unit's centre, edges included. An absent part matches all, and a unit that is
 dying matches nothing. Number fields: `hp` (whole points, a started point counting, as
 the game shows it), `maxHp`, `shields`, `maxShields`, `energy`, `owner`, `type`, `x`, `y`,
-`kills`, `orderId`, `orderTargetX`, `orderTargetY` (where the order is aimed, in pixels), `cooldown`, `resources`, and the timers `stim` `ensnare` `plague`
-`lockdown` `maelstrom` `irradiate` `stasis`. A written value stops at what the game's
+`kills`, `orderId`, `orderTargetX`, `orderTargetY` (where the order is aimed, in pixels), `orderState`, `queuedOrders` (the orders waiting behind it that the game counts: those with a button), `cooldown`, `resources`, the timers `stim` `ensnare` `plague`
+`lockdown` `maelstrom` `irradiate` `stasis`, and `acidSpores` (the stacks, 0–9). A written value stops at what the game's
 cell holds: 255 for a byte (kills, cooldown, timers, energy points), 65 535 for
 resources, 2²⁴ − 1 hit points.
 
