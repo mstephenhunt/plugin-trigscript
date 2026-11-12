@@ -37,3 +37,10 @@ export const GATHER_ORDERS: readonly { order: number; targets: readonly number[]
   { order: 85, targets: [176, 177, 178] },
   { order: 81, targets: [110, 149, 157] },
 ];
+
+/** The spells `u.cast(tech, target)` gives, by technology: the units that cast it and the order a cast at a unit is. Restoration: a Medic's CastRestoration. */
+export const CAST_ORDERS: readonly { tech: number; casters: readonly number[]; order: number }[] = [
+  { tech: 24, casters: [34], order: 180 },
+];
+/** The order `u.stop()` gives, as the Stop button does. */
+export const STOP_ORDER = 1;

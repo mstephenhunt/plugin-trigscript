@@ -1674,6 +1674,54 @@ describe("a map of our own, units", () => {
     });
   });
 
+  describe("cast() and stop()", () => {
+    const place = (slot: number) => TABLE + 336 * slot;
+    // Places 0, 1 699, 1 698: a Medic healing, a Marine, a second Medic attack-moving.
+    const CASTING: SimUnitInit[] = [
+      { type: 34, owner: 0, x: 100, y: 100, energy: 100, orderId: 176 },
+      { type: 0, owner: 0, x: 120, y: 100 },
+      { type: 34, owner: 0, x: 140, y: 100, energy: 100, orderId: 177 },
+    ];
+    const SCRIPT = [
+      "  const medic = first({ type: units.TerranMedic })!;",
+      "  const marine = first({ type: units.TerranMarine })!;",
+      "  let other: Unit | null = null;",
+      "  for (const m of allUnits({ type: units.TerranMedic })) other = m;",
+      "  medic.cast(techs.Restoration, marine);",
+      "  marine.cast(techs.Restoration, medic);",
+      "  if (other) other.stop();",
+      "  if (other) print(`${medic.orderId} ${medic.orderState} ${marine.orderId} ${medic.orderTarget == marine} ${other.orderId} ${other.orderState}`);",
+    ].join("\n");
+
+    it("is CastRestoration at the target and Stop, in the simulator as in the game", () => {
+      same(SCRIPT, CASTING);
+    });
+
+    it("writes the order target, and the order with its state put back to the start; leaves a caster that is not a Medic alone", () => {
+      const r = compileScript(ts, { "main.ts": `program(() => {\n${SCRIPT}\n});\n` }, defaultScriptNames(), { lib: defaultLib() });
+      expect(r.diagnostics).toEqual([]);
+      const o = emitOwn(r);
+      if (typeof o === "string") throw new Error(o);
+      const memory = memoryOf(CASTING, {});
+      // (States the game had moved on to, which the orders are to start again.)
+      for (const slot of [0, 1698]) memory.set(place(slot) + 0x4c, (memory.get(place(slot) + 0x4c)! | 0x00010000) >>> 0);
+      const marineWord = memory.get(place(1699) + 0x4c);
+      const after = new Map<number, number>();
+      runOwn(o.runs[0].graph, memory, o.values, undefined, 2, (frame, _write, read) => {
+        if (frame === 2) for (const slot of [0, 1699, 1698]) for (const offset of [0x4c, 0x5c]) after.set(place(slot) + offset, read(place(slot) + offset));
+      });
+      const dword = (slot: number, offset: number) => after.get(place(slot) + offset) ?? 0;
+      expect([(dword(0, 0x4c) >>> 8) & 0xff, (dword(0, 0x4c) >>> 16) & 0xff, dword(0, 0x5c)]).toEqual([180, 0, place(1699)]);
+      expect([dword(1699, 0x4c), dword(1699, 0x5c)]).toEqual([marineWord, 0]);
+      expect([(dword(1698, 0x4c) >>> 8) & 0xff, (dword(1698, 0x4c) >>> 16) & 0xff]).toEqual([1, 0]);
+    });
+
+    it("with any other technology is an error that names it", () => {
+      const r = compileScript(ts, { "main.ts": "program(() => {\n  const m = first({ type: units.TerranMedic })!;\n  m.cast(techs.OpticalFlare, m);\n});\n" }, defaultScriptNames(), { lib: defaultLib() });
+      expect(r.diagnostics.map((d) => d.message)).toEqual(["cast() casts techs.Restoration only: Optical Flare has no cast yet."]);
+    });
+  });
+
   it("reads Optical Flare, acid spores, the order's state and the orders queued where the game keeps them", () => {
     same([
       "  for (const u of allUnits({})) print(`${u.opticalFlare} ${u.acidSpores} ${u.orderState} ${u.queuedOrders}`);",

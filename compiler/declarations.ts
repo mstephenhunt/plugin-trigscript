@@ -222,6 +222,14 @@ ${kw}interface Unit {
    */
   gather(target: Unit): void;
   /**
+   * Cast a spell at a unit, as a player's command does: \`medic.cast(techs.Restoration, marine)\`. Restoration is the one
+   * spell so far, cast by a Medic; any other technology is an error when the script is built. Nothing checks the
+   * research or the energy: the game drops a cast it has no energy for, and walks the caster into range.
+   */
+  cast(tech: Tech, target: Unit): void;
+  /** Stop, as the Stop button does: the unit gives up its order where it stands and takes up the next one it has queued, or stands idle. */
+  stop(): void;
+  /**
    * How far apart two units are, in pixels, as the game measures a weapon's or a spell's range: from the edge of one's
    * box to the edge of the other's (0 when they touch). 0 when either is gone.
    */

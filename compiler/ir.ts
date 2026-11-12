@@ -265,7 +265,11 @@ export type UnitVerb =
   /** Centre a location on the unit, its size kept. */
   | { do: "locate"; location: number }
   /** A worker sent to mine a mineral field or harvest a gas building, as a right-click on it sends one. */
-  | { do: "gather"; target: UnitExpr };
+  | { do: "gather"; target: UnitExpr }
+  /** A spell cast at a unit, as a player's command gives it: `tech` is one of `CAST_ORDERS`'. */
+  | { do: "cast"; tech: number; target: UnitExpr }
+  /** The order Stop, as the Stop button gives it. */
+  | { do: "stop" };
 
 /**
  * One cell of the game's tables (`tables.ts`): `base + index × stride + key`, `width` bytes or one
@@ -822,7 +826,7 @@ export function declarations(body: Stmt[]): VarDecl[] {
       case "textLoop": text(s.of); out.push(s.decl); s.body.forEach(stmt); break;
       case "unitLoop": out.push(s.decl); if (s.was) out.push(s.was); s.body.forEach(stmt); break;
       case "unitWrite": unit(s.unit); init(s.value); break;
-      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal") expr(s.verb.amount); if (s.verb.do === "gather") unit(s.verb.target); break;
+      case "unitDo": unit(s.unit); if (s.verb.do === "damage" || s.verb.do === "heal") expr(s.verb.amount); if (s.verb.do === "gather" || s.verb.do === "cast") unit(s.verb.target); break;
       case "select": s.units.forEach(unit); break;
       case "tableWrite": init(s.value); break;
       case "if": init(s.cond); s.then.forEach(stmt); s.else?.forEach(stmt); break;

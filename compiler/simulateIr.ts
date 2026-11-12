@@ -40,7 +40,7 @@
 import { fixedAtan2, fixedDiv, fixedMul, fixedSin, fixedSqrt, fixedText } from "./fixedMath";
 import { ActionType, Comparison, ConditionType, SetModifier, SWITCH_COUNT, SwitchAction, SwitchState, type ActionRecord, type ConditionRecord } from "../vendor/triggers";
 import { emptyAction, ResourceType } from "../vendor/triggers";
-import { GATHER_ORDERS, GATHER_WORKERS, ORDER_OF_VERB } from "./orders";
+import { CAST_ORDERS, GATHER_ORDERS, GATHER_WORKERS, ORDER_OF_VERB, STOP_ORDER } from "./orders";
 import { BUILD_BYTES, ERROR_CODES, HEAP_CELLS, HEAP_SMALLEST, STACK_DEPTH, STACK_OVERFLOW_MESSAGE, TEXT_BYTES, TEXT_FIELD_BYTES, UNIT_FLAGS, eachStart, heapCells, isTextExpr, programDeclarations, stackDepth } from "./ir";
 import type { TextExpr, ArrayDecl, At, BoolExpr, Call, EventSource, NumExpr, Program, ReadSource, Stmt, TableCell, TextPart, UnitExpr, UnitFilter, UnitNumField, UnitVerb, VarDecl } from "./ir";
 import { cellMax, UNIT_DIMENSIONS } from "./tables";
@@ -547,7 +547,7 @@ class ProgramRun {
     const u = yield* this.living(e);
     // The amount is computed whether or not there is a unit, as the game computes it.
     const amount = verb.do === "damage" || verb.do === "heal" ? yield* this.amount(verb.amount) : 0;
-    const target = verb.do === "gather" ? yield* this.living(verb.target) : null;
+    const target = verb.do === "gather" || verb.do === "cast" ? yield* this.living(verb.target) : null;
     if (!u) return;
     switch (verb.do) {
       case "kill": case "remove": this.sim.game.gone(u, verb.do === "kill", undefined, false); this.sim.unitEvent(this, verb.do === "kill" ? ActionType.KillUnit : ActionType.RemoveUnit, u, at); break;
@@ -562,6 +562,14 @@ class ProgramRun {
         if (order !== undefined) { u.orderId = order; u.orderTarget = target; }
         break;
       }
+      // (The caster takes up the order and keeps it here: the simulator casts nothing.)
+      case "cast": {
+        const spell = CAST_ORDERS.find((c) => c.tech === verb.tech);
+        if (!target || !spell?.casters.includes(u.type)) break;
+        u.orderId = spell.order; u.orderState = 0; u.orderTarget = target;
+        break;
+      }
+      case "stop": u.orderId = STOP_ORDER; u.orderState = 0; u.orderTarget = undefined; break;
       case "damage": case "heal": {
         // In the game's own units, 256 to a point, as the lowering computes it.
         const step = verb.percent ? Math.floor((u.maxHp * 256 * amount) / 100) : amount * 256;

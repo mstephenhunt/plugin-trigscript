@@ -19,7 +19,7 @@
  */
 import type { ArrayDecl, At, BoolExpr, Call, CompareOp, FuncDecl, NumExpr, Program, Stmt, UnitExpr, UnitFilter, UnitFlag, UnitNumField, VarDecl } from "../ir";
 import type { ActionRecord, ConditionRecord } from "../../vendor/triggers";
-import { GATHER_ORDERS, GATHER_WORKERS } from "../orders";
+import { CAST_ORDERS, GATHER_ORDERS, GATHER_WORKERS, STOP_ORDER } from "../orders";
 import { UNIT_DIMENSIONS } from "../tables";
 import { STATEMENT_KINDS } from "./emit";
 import { MOUSE_CELLS } from "./input";
@@ -73,7 +73,7 @@ const word = (byte: number, bytes: 1 | 2 | 4): Bits => {
 const SPRITE = 0x0c >> 2, POSITION = 0x28 >> 2, UID = word(0xa5, 1);
 /** The owner and the order share a dword: the owner its low byte, the order the next. */
 const OWNER = word(0x4c, 1), ORDER = word(0x4d, 1), TYPE = word(0x64, 2);
-/** The order's state, beside the order in its dword: what `gather()` puts back to the start. */
+/** The order's state, beside the order in its dword: what `gather()` and `cast()` put back to the start. */
 const ORDER_STATE = word(0x4e, 1);
 const X = word(0x28, 2), Y = word(0x2a, 2);
 const FIELDS: Partial<Record<UnitNumField, Bits>> = {
@@ -826,13 +826,16 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
     const v = s.verb;
     // (The amount is worked out whether or not there is a unit.)
     const amount = v.do === "damage" || v.do === "heal" ? plain(fix(v.amount, pre) as NumExpr, pre) : null;
-    const target = v.do === "gather" ? held(unit(v.target, pre), pre) : null;
+    const target = v.do === "gather" || v.do === "cast" ? held(unit(v.target, pre), pre) : null;
     if (isNone(u0)) return;
     const u = held(u0, pre);
     const e = u.e;
     const body: Stmt[] = [];
+    const is = (id: string, types: readonly number[]) => any(types.map((type) => cmp("==", ranged(V(id), 0, 0xffff), k(type))));
     switch (v.do) {
       case "kill": body.push(die(e)); break;
+      // (The order and its state share a dword: both written at once, the state back to the start.)
+      case "stop": body.push(poke(of(e, ORDER.dword), k(STOP_ORDER * 2 ** ORDER.shift), (ORDER.mask | ORDER_STATE.mask) >>> 0)); break;
       // (eudplib's `CUnit.remove()`: the unit leaves without dying.)
       case "remove": body.push(poke(of(e, USER_ACTION.dword), k(4 * 2 ** USER_ACTION.shift), USER_ACTION.mask), die(e)); break;
       case "locate": {
@@ -889,7 +892,6 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
         // The order's target, its state back to the start and the order itself, as the game's right-click leaves them.
         if (!target || isNone(target)) break;
         const worker = fresh("ty"), aimed = fresh("ty"), order = fresh("order");
-        const is = (id: string, types: readonly number[]) => any(types.map((type) => cmp("==", ranged(V(id), 0, 0xffff), k(type))));
         body.push(dec(worker, k(0), 0xffff), dec(aimed, k(0), 0xffff), dec(order, k(0), 255), ...readInto(worker, e, TYPE));
         body.push(...when(all([is(worker, GATHER_WORKERS), alive(target)]), [
           ...readInto(aimed, target.e, TYPE),
@@ -899,6 +901,18 @@ export function unitValues(program: Program, events?: { sources: Set<EventSource
           poke(of(e, ORDER_TARGET), bin("+", bin("*", target.e, k(4)), k(DEATHS))),
           poke(of(e, ORDER_STATE.dword), k(0), ORDER_STATE.mask),
           poke(of(e, ORDER.dword), bin("*", ranged(V(order), 0, 255), k(256)), ORDER.mask),
+        ]));
+        break;
+      }
+      case "cast": {
+        // The spell's order at the target, its state back to the start, as a player's command leaves them.
+        const spell = CAST_ORDERS.find((c) => c.tech === v.tech);
+        if (!spell || !target || isNone(target)) break;
+        const caster = fresh("ty");
+        body.push(dec(caster, k(0), 0xffff), ...readInto(caster, e, TYPE));
+        body.push(...when(all([is(caster, spell.casters), alive(target)]), [
+          poke(of(e, ORDER_TARGET), bin("+", bin("*", target.e, k(4)), k(DEATHS))),
+          poke(of(e, ORDER.dword), k(spell.order * 2 ** ORDER.shift), (ORDER.mask | ORDER_STATE.mask) >>> 0),
         ]));
         break;
       }

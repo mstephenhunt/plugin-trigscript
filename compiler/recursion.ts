@@ -325,11 +325,11 @@ export function settleRecursion(program: Program): ProgramDiagnostic[] {
           case "unitDo": {
             const items: { e: Expr; kind: Kind }[] = [{ e: s.unit, kind: "unit" }];
             if (s.verb.do === "damage" || s.verb.do === "heal") items.push({ e: s.verb.amount, kind: "number" });
-            if (s.verb.do === "gather") items.push({ e: s.verb.target, kind: "unit" });
+            if (s.verb.do === "gather" || s.verb.do === "cast") items.push({ e: s.verb.target, kind: "unit" });
             const done = operands(items, pre, w);
             s.unit = done[0] as UnitExpr;
             if (s.verb.do === "damage" || s.verb.do === "heal") s.verb.amount = done[1] as NumExpr;
-            if (s.verb.do === "gather") s.verb.target = done[1] as UnitExpr;
+            if (s.verb.do === "gather" || s.verb.do === "cast") s.verb.target = done[1] as UnitExpr;
             break;
           }
           case "tableWrite": s.value = isTextExpr(s.value) ? rewriteText(s.value, pre, w) : (value(s.value, s.boolean ? "boolean" : "number") as NumExpr | BoolExpr); break;
