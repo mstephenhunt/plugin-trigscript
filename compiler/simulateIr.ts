@@ -1623,6 +1623,15 @@ export class ProgramSimulation {
       case "local.camera.y": return camera.y;
       case "local.mouse.x": return mouse.x - camera.x;
       case "local.mouse.y": return mouse.y - camera.y;
+      // A click is a button down for the frame it arrives on.
+      case "local.mouse.buttons": return (this.current.events.has(`click:${at}:left`) ? 2 : 0) + (this.current.events.has(`click:${at}:right`) ? 8 : 0);
+      case "local.card.buttonSet": {
+        // The selection's own type when it is one type, as the game's sets are numbered for most units; 244 for several.
+        const selected = (this.selections.get(at) ?? []).filter((u) => u.alive);
+        if (selected.length === 0) return 0xffff;
+        return selected.every((u) => u.type === selected[0].type) ? selected[0].type : 244;
+      }
+      case "local.screen.width": return 640;
       default: {
         // A selection slot: the unit's place in the table, from 1, as a kept unit's number is here; 0 for none.
         const slot = /^local\.selection\[(\d+)\]$/.exec(name);
