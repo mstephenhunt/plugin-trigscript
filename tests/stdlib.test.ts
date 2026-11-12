@@ -2,7 +2,7 @@
  * The standard library (TrigScript 4): modules of TrigScript shipped with the compiler and imported as
  * "trigscript/<name>" — fog first. What joins a script's files and when, the location a library reserves, and what the
  * fog's functions compile to: a picture's brushes, read back out of the IR, light the picture's tiles. Workers'
- * buildAutoMiningProgram().
+ * buildAutoMiningProgram(), spells' buildAutoRestoreProgram().
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -317,5 +317,40 @@ describe("trigscript/workers", () => {
   it("is on again in the next build", () => {
     ok(`${IMPORTED}buildAutoMiningProgram();`);
     expect(ok(`${IMPORTED}buildAutoMiningProgram();`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/workers.ts"]);
+  });
+});
+
+describe("trigscript/spells", () => {
+  const IMPORTED = `import { buildAutoRestoreProgram } from "trigscript/spells";\n`;
+  const statementsOf = (r: CompileResult) => bodiesOf(r.ir[0]).flatMap((body) => walk(body));
+
+  it("buildAutoRestoreProgram() at the top of a script is the library's program: a loop that casts Restoration and stops a Medic", () => {
+    const r = ok(`${IMPORTED}buildAutoRestoreProgram();`);
+    expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/spells.ts"]);
+    const statements = statementsOf(r);
+    expect(statements.some((s) => s.kind === "unitDo" && s.verb.do === "cast" && s.verb.tech === 24)).toBe(true);
+    expect(statements.some((s) => s.kind === "unitDo" && s.verb.do === "stop")).toBe(true);
+  });
+
+  it("takes a switch of the map by its name, and the energy to keep", () => {
+    const r = ok(`${IMPORTED}buildAutoRestoreProgram({ switch: "Switch3", keepEnergy: 25 });`);
+    expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/spells.ts"]);
+    // (The condition Switch, "set": Switch3 is switch 2, counted from 0.)
+    expect(JSON.stringify(r.ir[0])).toContain('"comparison":2,"type":11,"resource":2,');
+  });
+
+  it("refuses a switch the map does not have", () => {
+    expect(compile(`${IMPORTED}buildAutoRestoreProgram({ switch: "Medics trained" });`).diagnostics.map((d) => d.message).join("\n")).toContain('"Medics trained"');
+  });
+
+  it("imported and not called, it adds nothing", () => {
+    expect(ok(`${IMPORTED}program(() => {});`).ir.map((p) => p.at?.file)).toEqual(["main.ts"]);
+  });
+
+  it("called again, in the same file or another, it adds nothing", () => {
+    expect(ok(`${IMPORTED}buildAutoRestoreProgram();\nbuildAutoRestoreProgram({ keepEnergy: 10 });`).ir.map((p) => p.at?.file)).toEqual(["__trigscript__/spells.ts"]);
+    const r = compileScript(ts, { "main.ts": `${IMPORTED}import "./more";\nbuildAutoRestoreProgram();`, "more.ts": `${IMPORTED}buildAutoRestoreProgram();` }, NAMES, { lib: LIB });
+    expect(r.diagnostics).toEqual([]);
+    expect(r.ir.map((p) => p.at?.file)).toEqual(["__trigscript__/spells.ts"]);
   });
 });
