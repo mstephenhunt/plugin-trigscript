@@ -1217,7 +1217,7 @@ export interface Sim {
   /** A line of chat, for the next frame: what chatted() finds. */
   type(line: string, player?: Player): this;
   moveMouse(x: number, y: number, player?: Player): this;
-  /** The player's screen to a place on the map, its top left corner in pixels: what local.camera reads. The mouse stays where it is on the map. */
+  /** The player's screen to a place on the map, its top left corner in pixels: what local.camera reads. The mouse stays where it is on the map. centerView() moves it too. */
   moveCamera(x: number, y: number, player?: Player): this;
   /** The player selects these units (up to twelve), as a drag would at their computer: what local.selected reads. */
   selectUnits(units: readonly SimUnit[], player?: Player): this;

@@ -1751,11 +1751,34 @@ export class ProgramSimulation {
     for (const v of this.vision.values()) for (let i = 0; i < v.length; i++) if (v[i] === 2) v[i] = 1;
     for (const u of this.world.game.units) if (u.alive) this.reveal(u);
   }
+  /** The map's size in tiles: what `memory.map.width` and `memory.map.height` read, else 128 by 128. */
+  private mapTiles(): { width: number; height: number } {
+    return {
+      width: this.tableOf?.({ name: "memory.map.width", base: 0x57f1d4, stride: 0, index: 0, width: 2 }) || 128,
+      height: this.tableOf?.({ name: "memory.map.height", base: 0x57f1d6, stride: 0, index: 0, width: 2 }) || 128,
+    };
+  }
+
+  /**
+   * Center View: the player's 640 × 480 screen (Classic graphics) centered on the location, snapped down to 8 pixels and
+   * kept on the map. The mouse stays where it is on the screen.
+   */
+  private centerCamera(player: number, location: number): void {
+    const { x, y } = this.game.centreOf(location);
+    const map = this.mapTiles();
+    const kept = (value: number, most: number) => Math.max(0, Math.min(value, most)) & ~7;
+    // Played in Classic graphics: Center View stops the screen 648 pixels short of the map's right edge and 488 short of its bottom.
+    const now = { x: kept(x - 320, map.width * 32 - 648), y: kept(y - 240, map.height * 32 - 488) };
+    const was = this.cameras.get(player) ?? { x: 0, y: 0 };
+    const mouse = this.mice.get(player);
+    if (mouse) this.mice.set(player, { x: mouse.x + now.x - was.x, y: mouse.y + now.y - was.y });
+    this.cameras.set(player, now);
+  }
+
   /** What a player sees of the fog, as GameSim.fog gives it from the game: "#" now, "+" before, "." never. */
   fog(player: number, area?: { x: number; y: number; width: number; height: number }): string[] {
-    const w = this.tableOf?.({ name: "memory.map.width", base: 0x57f1d4, stride: 0, index: 0, width: 2 }) || 128;
-    const h = this.tableOf?.({ name: "memory.map.height", base: 0x57f1d6, stride: 0, index: 0, width: 2 }) || 128;
-    const { x = 0, y = 0, width = w, height = h } = area ?? {};
+    const map = this.mapTiles();
+    const { x = 0, y = 0, width = map.width, height = map.height } = area ?? {};
     const v = this.visionOf(player), rows: string[] = [];
     for (let ty = y; ty < Math.min(y + height, FOG_SIZE); ty++) {
       let row = "";
@@ -1807,6 +1830,7 @@ export class ProgramSimulation {
         if (a.unitId === ResourceType.Gas || a.unitId === ResourceType.OreAndGas) stock[1] = set(stock[1]);
       }
     }
+    if (a.type === ActionType.CenterView) this.centerCamera(run.player, a.location);
     switch (a.type) {
       case ActionType.SetDeaths:
         this.world.changeDeath(a.player, a.unitId, a.modifier, a.target);
